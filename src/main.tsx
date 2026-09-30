@@ -4,7 +4,8 @@ import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
 import './styles.css';
 
-registerSW({ immediate: true });
+// Nella versione anteprima (file unico) non c'è service worker.
+if (!import.meta.env.VITE_ARTIFACT) registerSW({ immediate: true });
 
 // Chiede al browser di non cancellare i dati in caso di poco spazio (importante su iOS/Safari).
 void navigator.storage?.persist?.();
