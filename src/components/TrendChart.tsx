@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { addDays, formatLong, formatShort } from '../date';
-import { heatLevel, levelWord } from '../ui';
+import { movingAverage } from '../stats';
+import { heatLevel, levelWord, num } from '../ui';
 
 export interface TrendPoint {
   date: string;
@@ -18,8 +19,8 @@ const SCALE = [
 ];
 
 /**
- * Andamento giornaliero della media dei sintomi (0 = bene, 4 = malissimo). La linea si interrompe sui giorni non
- * registrati; i punti usano la stessa scala di colore del calendario.
+ * Andamento dei sintomi (0 = bene, 4 = malissimo): un punto per giorno, con i colori del calendario,
+ * e la media degli ultimi 7 giorni come linea, che rende leggibile la tendenza.
  */
 export function TrendChart({ points, end, days }: { points: Map<string, TrendPoint>; end: string; days: number }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -38,19 +39,22 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
   const x = (i: number) => PAD.left + (i / (days - 1)) * innerW;
   const y = (v: number) => PAD.top + innerH - (v / 4) * innerH;
 
-  const segments: string[] = [];
+  const avg = useMemo(() => movingAverage(series.map((p) => p.value)), [series]);
+
+  // Linea della media: si interrompe dove non ci sono dati negli ultimi 7 giorni.
+  const avgPaths: string[] = [];
   let current = '';
-  series.forEach((p, i) => {
-    if (p.value === undefined) {
-      if (current) segments.push(current);
+  avg.forEach((v, i) => {
+    if (v === undefined) {
+      if (current) avgPaths.push(current);
       current = '';
       return;
     }
-    current += `${current ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`;
+    current += `${current ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
   });
-  if (current) segments.push(current);
+  if (current) avgPaths.push(current);
 
-  const tickEvery = days <= 31 ? 7 : 21;
+  const tickEvery = Math.max(7, Math.ceil(days / 5 / 7) * 7);
   const ticks = series.map((p, i) => ({ p, i })).filter(({ i }) => (days - 1 - i) % tickEvery === 0);
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -70,7 +74,7 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`Media dei sintomi negli ultimi ${days} giorni: ${logged.length} giorni registrati`}
+        aria-label={`Sintomi negli ultimi ${days} giorni: ${logged.length} giorni registrati. Media dell'ultima settimana: ${avg[days - 1] === undefined ? 'nessun dato' : levelWord(avg[days - 1]!).toLowerCase()}`}
         onPointerMove={onMove}
         onPointerDown={onMove}
         onPointerLeave={() => setHover(null)}
@@ -108,9 +112,6 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
         {hover !== null && (
           <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--primary)" strokeOpacity={0.4} strokeWidth={1.5} />
         )}
-        {segments.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke="var(--primary)" strokeOpacity={0.55} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        ))}
         {series.map((p, i) => {
           if (p.value === undefined) return null;
           return (
@@ -118,13 +119,20 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
               key={p.date}
               cx={x(i)}
               cy={y(p.value)}
-              r={hover === i ? 5.5 : days > 45 ? 2.8 : 3.8}
+              r={hover === i ? 5 : days > 100 ? 2 : days > 45 ? 2.6 : 3.4}
               fill={p.value > 0 ? `var(--v-${heatLevel(p.value)})` : 'var(--better)'}
+              fillOpacity={hover === i ? 1 : 0.7}
               stroke="var(--card)"
-              strokeWidth={1.5}
+              strokeWidth={1}
             />
           );
         })}
+        {avgPaths.map((d, i) => (
+          <path key={i} d={d} fill="none" stroke="var(--primary)" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+        ))}
+        {hover !== null && avg[hover] !== undefined && (
+          <circle cx={x(hover)} cy={y(avg[hover]!)} r={4.5} fill="var(--primary)" stroke="var(--card)" strokeWidth={2} />
+        )}
       </svg>
       {hp && (
         <div
@@ -135,10 +143,19 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
           }}
         >
           <strong>{formatLong(hp.date)}</strong>
-          {hp.value === undefined ? 'Non registrato' : `In media: ${levelWord(hp.value).toLowerCase()}`}
+          {hp.value === undefined ? 'Non registrato' : `Giornata: ${levelWord(hp.value).toLowerCase()} (${num(hp.value)})`}
+          {avg[hover!] !== undefined && <div>Media 7 giorni: {num(avg[hover!]!)}</div>}
           {hp.detail && <div className="t-foods">{hp.detail}</div>}
         </div>
       )}
+      <div className="chart-legend" aria-hidden>
+        <span>
+          <i className="dot" /> Giorno per giorno
+        </span>
+        <span>
+          <i className="line" /> Media degli ultimi 7 giorni
+        </span>
+      </div>
     </div>
   );
 }

@@ -10,6 +10,13 @@ App web (installabile sul telefono come PWA) per tenere traccia giorno per giorn
 
 …e poi **cercare correlazioni** tra ciò che mangi e come stai.
 
+## Grafici
+
+Nella scheda *Grafici*, per gli ultimi 30 o 90 giorni o per tutto il diario:
+andamento con media degli ultimi 7 giorni, momenti della giornata, giorni della settimana,
+sintomi più frequenti, distribuzione delle feci (Bristol) e sintomi per livello di stress e di sonno.
+Ogni grafico ha in cima una frase che riassume cosa emerge.
+
 ## Privacy
 
 Tutti i dati restano nel browser del dispositivo (IndexedDB): niente account, niente server.
@@ -49,6 +56,7 @@ Nessuna libreria di grafici né di componenti: SVG/CSS scritti a mano, con palet
 ```
 src/
   analysis.ts        motore statistico (puro, testato)
+  stats.ts           calcoli per i grafici (puro, testato)
   db.ts              database locale, backup/import
   defaults.ts        sintomi e alimenti iniziali
   demo.ts            generatore di dati di esempio

@@ -429,7 +429,7 @@ textarea.field:focus {
 }
 .tabbar-inner {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   width: 100%;
   max-width: 480px;
 }
@@ -445,7 +445,7 @@ textarea.field:focus {
 .tabbar button .ic {
   display: grid;
   place-items: center;
-  width: 56px;
+  width: 52px;
   height: 32px;
   border-radius: 999px;
   transition: background 0.2s;
@@ -1495,6 +1495,192 @@ details.disclosure .body {
 }
 .install strong {
   color: var(--ink);
+}
+
+/* ------------------------------------------------------------------
+   Grafici
+   ------------------------------------------------------------------ */
+.range-pills {
+  margin-bottom: 16px;
+}
+.chart-card {
+  margin-top: 14px;
+}
+.chart-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 720;
+  letter-spacing: -0.01em;
+}
+.chart-card .takeaway {
+  margin: 4px 0 18px;
+  color: var(--ink-2);
+  font-size: 0.93rem;
+  text-wrap: pretty;
+}
+.chart-card h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.chart-foot {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: var(--ink-2);
+}
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.chart-legend .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--v-2);
+}
+.chart-legend .line {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+.columns {
+  display: grid;
+  gap: 6px;
+  align-items: end;
+}
+.columns .col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 0;
+  border-radius: var(--r-s);
+  transition: background 0.15s;
+}
+.columns .col.active {
+  background: var(--primary-soft);
+}
+.columns .val {
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.columns .track {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  max-width: 40px;
+  height: 110px;
+  border-bottom: 1px solid var(--line);
+}
+.columns .fill {
+  width: 100%;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--v-2);
+  transition: height 0.3s ease;
+}
+.columns .fill.top {
+  background: var(--v-4);
+}
+.columns .col.active .fill {
+  background: var(--primary);
+}
+.columns .col.empty .track {
+  border-bottom-style: dashed;
+}
+.columns .lbl {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.chart-detail:empty {
+  display: none;
+}
+.chart-detail {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+.rows-chart {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.rows-chart li {
+  display: grid;
+  grid-template-columns: minmax(90px, 38%) 1fr 40px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+}
+.rows-chart .lbl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rows-chart .track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+}
+.rows-chart .fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--v-2);
+}
+.rows-chart .fill.top {
+  background: var(--v-4);
+}
+.rows-chart .val {
+  text-align: right;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.twin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.twin .columns .track {
+  height: 80px;
+}
+.twin-caption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+@media (max-width: 400px) {
+  .twin {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

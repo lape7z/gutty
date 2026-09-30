@@ -3,9 +3,7 @@ import { addDays, formatLong, todayISO } from '../date';
 import { overallScore, useActiveSymptoms, useDays, useFactorNames } from '../hooks';
 import { LEVELS, MOMENT_INFO } from '../day';
 import { Icon, Mascot, Sec, heatStyle, levelWord } from '../ui';
-import { TrendChart, type TrendPoint } from './TrendChart';
 
-const RANGES = [30, 90] as const;
 const WEEKDAYS = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
 const fmtMonth = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' });
 
@@ -25,7 +23,6 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
   const nameOf = useFactorNames();
   const today = todayISO();
   const [month, setMonth] = useState(monthOf(today));
-  const [range, setRange] = useState<(typeof RANGES)[number]>(30);
   const [showAll, setShowAll] = useState(false);
 
   const byDate = useMemo(() => new Map((days ?? []).map((d) => [d.date, d])), [days]);
@@ -35,18 +32,6 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
     return cache;
   }, [days, symptoms]);
 
-  const points = useMemo(() => {
-    const map = new Map<string, TrendPoint>();
-    for (const d of days ?? []) {
-      const names = d.foods.map(nameOf);
-      map.set(d.date, {
-        date: d.date,
-        value: scoreOf.get(d.date),
-        detail: names.length ? names.slice(0, 4).join(', ') + (names.length > 4 ? ` +${names.length - 4}` : '') : undefined,
-      });
-    }
-    return map;
-  }, [days, nameOf, scoreOf]);
 
   if (!days) return null;
 
@@ -141,25 +126,6 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
           <span>giornate difficili</span>
         </div>
       </div>
-
-      {days.length > 1 && (
-        <>
-          <Sec title="Andamento"
-            aside={
-              <span className="pills" style={{ margin: 0, padding: 0 }} role="group" aria-label="Periodo">
-                {RANGES.map((r) => (
-                  <button key={r} className="pill" aria-pressed={range === r} onClick={() => setRange(r)}>
-                    {r} giorni
-                  </button>
-                ))}
-              </span>
-            }
-          />
-          <section className="sheet">
-            <TrendChart points={points} end={today} days={range} />
-          </section>
-        </>
-      )}
 
       <Sec title="Giornate" aside={monthEntries.length ? `${monthEntries.length} nel mese` : undefined} />
       {monthEntries.length === 0 ? (

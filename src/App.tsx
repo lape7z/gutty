@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
+import { ChartsView } from './components/ChartsView';
 import { DayView } from './components/DayView';
 import { DiaryView } from './components/DiaryView';
 import { InsightsView } from './components/InsightsView';
@@ -10,11 +11,12 @@ import { generateDemo } from './demo';
 import { todayISO } from './date';
 import { Icon, type IconName } from './ui';
 
-type Tab = 'oggi' | 'diario' | 'analisi' | 'impostazioni';
+type Tab = 'oggi' | 'diario' | 'grafici' | 'analisi' | 'impostazioni';
 
 const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: 'oggi', label: 'Oggi', icon: 'today' },
   { id: 'diario', label: 'Diario', icon: 'diary' },
+  { id: 'grafici', label: 'Grafici', icon: 'charts' },
   { id: 'analisi', label: 'Analisi', icon: 'insights' },
   { id: 'impostazioni', label: 'Impostazioni', icon: 'settings' },
 ];
@@ -74,6 +76,7 @@ export function App() {
             }}
           />
         )}
+        {tab === 'grafici' && <ChartsView />}
         {tab === 'analisi' && <InsightsView />}
         {tab === 'impostazioni' && <SettingsView />}
       </main>
