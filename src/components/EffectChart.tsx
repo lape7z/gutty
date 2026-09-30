@@ -1,9 +1,5 @@
 import type { FactorResult } from '../analysis';
-
-function signed(v: number): string {
-  const s = Math.abs(v).toLocaleString('it-IT', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${s}`;
-}
+import { signed } from '../ui';
 
 /**
  * Barre divergenti: di quanto cambia il punteggio medio dei sintomi quando il fattore è presente.
@@ -45,4 +41,3 @@ export function EffectChart({ results, nameOf }: { results: FactorResult[]; name
   );
 }
 
-export { signed };

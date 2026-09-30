@@ -39,7 +39,8 @@ npm test          # test del motore di analisi
 npm run build     # build di produzione in dist/
 ```
 
-Stack: React + TypeScript + Vite, Dexie (IndexedDB), vite-plugin-pwa. Nessuna libreria di grafici: SVG/CSS scritti a mano.
+Stack: React + TypeScript + Vite, Dexie (IndexedDB), vite-plugin-pwa. Font Fraunces e Figtree inclusi nel bundle (funzionano offline).
+Nessuna libreria di grafici né di componenti: SVG/CSS scritti a mano, con palette verificata per il daltonismo e tema chiaro/scuro.
 
 ```
 src/
@@ -47,6 +48,7 @@ src/
   db.ts              database locale, backup/import
   defaults.ts        sintomi e alimenti iniziali
   demo.ts            generatore di dati di esempio
+  ui.tsx             icone, scala di colore dell'intensità, componenti condivisi
   components/        schermate Oggi, Diario, Analisi, Impostazioni e grafici
 ```
 

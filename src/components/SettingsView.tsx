@@ -5,6 +5,7 @@ import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { generateDemo } from '../demo';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
+import { Icon, SectionLabel } from '../ui';
 
 function download(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -29,6 +30,7 @@ export function SettingsView() {
   const [newFood, setNewFood] = useState('');
   const [newFoodCat, setNewFoodCat] = useState(FOOD_CATEGORIES[0]);
   const [newSymptom, setNewSymptom] = useState('');
+  const [browseCat, setBrowseCat] = useState(FOOD_CATEGORIES[0]);
 
   const categories = [...new Set([...FOOD_CATEGORIES, ...foods.map((f) => f.category)])];
 
@@ -89,6 +91,7 @@ export function SettingsView() {
       await db.foods.add({ id, name, category: newFoodCat });
     }
     setNewFood('');
+    setBrowseCat(newFoodCat);
   };
 
   const addSymptom = async () => {
@@ -101,116 +104,172 @@ export function SettingsView() {
 
   return (
     <>
-      <section className="card">
-        <h2>I tuoi dati</h2>
-        <p className="muted small" style={{ marginTop: 0 }}>
-          Tutto resta su questo dispositivo, nel browser: niente account, niente server. Per spostare i dati su un altro
-          dispositivo o conservarli al sicuro, esporta un backup e reimportalo.
-        </p>
-        <div className="row">
-          <button className="btn" onClick={exportJson}>
-            Esporta backup (JSON)
-          </button>
-          <button className="btn" onClick={exportCsv}>
-            Esporta per Excel (CSV)
-          </button>
-          <button className="btn" onClick={() => fileRef.current?.click()}>
-            Importa backup
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onImport(f);
-              e.target.value = '';
-            }}
-          />
-        </div>
-        <div className="row" style={{ marginTop: 10 }}>
-          <button className="btn" onClick={loadDemo}>
-            Carica dati di esempio
-          </button>
-          <button className="btn danger" onClick={wipe}>
-            Cancella tutto
-          </button>
-        </div>
-        {message && (
-          <p className="notice" role="status" style={{ marginBottom: 0 }}>
-            {message}
-          </p>
-        )}
-      </section>
+      <header className="page-head">
+        <span className="eyebrow">Impostazioni</span>
+        <h1 className="display">Il tuo diario</h1>
+        <p>Tutto resta su questo dispositivo: niente account, niente server.</p>
+      </header>
 
-      <section className="card">
-        <h2>Sintomi monitorati</h2>
-        <ul className="settings-list">
+      <SectionLabel title="Dati" />
+      <section className="sheet flush">
+        <ul className="list">
+          <li>
+            <button className="list-action" onClick={exportJson}>
+              <Icon name="download" />
+              <span>
+                Esporta backup
+                <span className="hint">File JSON da conservare o da importare su un altro dispositivo</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button className="list-action" onClick={() => fileRef.current?.click()}>
+              <Icon name="upload" />
+              <span>
+                Importa backup
+                <span className="hint">Unisce i dati: per ogni giorno vince la versione più recente</span>
+              </span>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onImport(f);
+                e.target.value = '';
+              }}
+            />
+          </li>
+          <li>
+            <button className="list-action" onClick={exportCsv}>
+              <Icon name="table" />
+              <span>
+                Esporta per Excel
+                <span className="hint">CSV da portare al medico o analizzare a modo tuo</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button className="list-action" onClick={loadDemo}>
+              <Icon name="sparkle" />
+              <span>
+                Carica dati di esempio
+                <span className="hint">120 giorni finti per vedere come funziona l’analisi</span>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button className="list-action danger" onClick={wipe}>
+              <Icon name="trash" style={{ color: 'inherit' }} />
+              <span>Cancella tutti i dati</span>
+            </button>
+          </li>
+        </ul>
+      </section>
+      {message && (
+        <p className="note" role="status" style={{ marginTop: 12 }}>
+          {message}
+        </p>
+      )}
+
+      <SectionLabel title="Sintomi" aside="attiva quelli da monitorare" />
+      <section className="sheet flush">
+        <ul className="list">
           {symptoms.map((s) => (
-            <li key={s.id} className={s.archived ? 'archived' : ''}>
+            <li key={s.id} className={s.archived ? 'off' : ''}>
               <span className="name">{s.name}</span>
-              <button className="btn ghost small" onClick={() => db.symptoms.update(s.id, { archived: !s.archived })}>
-                {s.archived ? 'Ripristina' : 'Nascondi'}
-              </button>
+              <button
+                className="switch"
+                role="switch"
+                aria-checked={!s.archived}
+                aria-label={`Monitora ${s.name}`}
+                onClick={() => db.symptoms.update(s.id, { archived: !s.archived })}
+              />
             </li>
           ))}
+          <li>
+            <form
+              style={{ display: 'flex', gap: 8, width: '100%', padding: '10px 0' }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void addSymptom();
+              }}
+            >
+              <label className="field" style={{ flex: 1 }}>
+                <Icon name="plus" size={18} />
+                <input placeholder="Nuovo sintomo, es. nausea" value={newSymptom} onChange={(e) => setNewSymptom(e.target.value)} />
+              </label>
+              {newSymptom.trim() && (
+                <button className="btn primary" type="submit">
+                  Aggiungi
+                </button>
+              )}
+            </form>
+          </li>
         </ul>
-        <form
-          className="row"
-          style={{ flexWrap: 'nowrap', marginTop: 10 }}
-          onSubmit={(e) => {
-            e.preventDefault();
-            void addSymptom();
-          }}
-        >
-          <input type="text" placeholder="Nuovo sintomo (es. nausea)" value={newSymptom} onChange={(e) => setNewSymptom(e.target.value)} />
-          <button className="btn primary" type="submit">
-            Aggiungi
-          </button>
-        </form>
       </section>
 
-      <section className="card">
-        <h2>Alimenti e bevande</h2>
+      <SectionLabel title="Alimenti" aside={`${foods.filter((f) => !f.archived).length} attivi`} />
+      <section className="sheet">
         <form
+          style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
           onSubmit={(e) => {
             e.preventDefault();
             void addFood();
           }}
         >
-          <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <input type="text" placeholder="Nuovo alimento" value={newFood} onChange={(e) => setNewFood(e.target.value)} />
-            <select value={newFoodCat} onChange={(e) => setNewFoodCat(e.target.value)} style={{ maxWidth: 160 }} aria-label="Categoria">
+          <label className="field" style={{ flex: '1 1 180px' }}>
+            <Icon name="plus" size={18} />
+            <input placeholder="Nuovo alimento o bevanda" value={newFood} onChange={(e) => setNewFood(e.target.value)} />
+          </label>
+          <label className="field" style={{ flex: '0 1 170px' }}>
+            <span className="sr-only">Categoria</span>
+            <select value={newFoodCat} onChange={(e) => setNewFoodCat(e.target.value)}>
               {categories.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
+          </label>
+          {newFood.trim() && (
             <button className="btn primary" type="submit">
               Aggiungi
             </button>
-          </div>
+          )}
         </form>
-        {categories.map((cat) => {
-          const items = foods.filter((f) => f.category === cat);
-          if (!items.length) return null;
-          return (
-            <div key={cat}>
-              <h3>{cat}</h3>
-              <ul className="settings-list">
-                {items.map((f) => (
-                  <li key={f.id} className={f.archived ? 'archived' : ''}>
-                    <span className="name">{f.name}</span>
-                    <button className="btn ghost small" onClick={() => db.foods.update(f.id, { archived: !f.archived })}>
-                      {f.archived ? 'Ripristina' : 'Nascondi'}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
+        <div className="pills" style={{ marginTop: 16 }} role="group" aria-label="Categoria">
+          {categories.map((c) => (
+            <button key={c} className="pill" aria-pressed={browseCat === c} onClick={() => setBrowseCat(c)}>
+              {c}
+            </button>
+          ))}
+        </div>
+        <ul className="list" style={{ marginTop: 6 }}>
+          {foods
+            .filter((f) => f.category === browseCat)
+            .map((f) => (
+              <li key={f.id} className={f.archived ? 'off' : ''}>
+                <span className="name">{f.name}</span>
+                <button
+                  className="switch"
+                  role="switch"
+                  aria-checked={!f.archived}
+                  aria-label={`Mostra ${f.name} nell’elenco`}
+                  onClick={() => db.foods.update(f.id, { archived: !f.archived })}
+                />
+              </li>
+            ))}
+        </ul>
       </section>
+
+      <footer className="brand">
+        <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" />
+        <span>
+          <strong>Gutty</strong>
+          Diario del colon irritabile · non sostituisce il parere medico
+        </span>
+      </footer>
     </>
   );
 }

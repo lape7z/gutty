@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { addDays, formatLong, formatShort } from '../date';
 import { formatScore } from '../hooks';
+import { heatLevel } from '../ui';
 
 export interface TrendPoint {
   date: string;
@@ -9,10 +10,13 @@ export interface TrendPoint {
 }
 
 const W = 400;
-const H = 170;
-const PAD = { top: 10, right: 14, bottom: 24, left: 24 };
+const H = 168;
+const PAD = { top: 10, right: 6, bottom: 24, left: 22 };
 
-/** Andamento giornaliero del punteggio (0-10), con buchi dove mancano registrazioni. */
+/**
+ * Andamento giornaliero della media dei sintomi (0-10). La linea si interrompe sui giorni non
+ * registrati; i punti usano la stessa scala di colore del calendario.
+ */
 export function TrendChart({ points, end, days }: { points: Map<string, TrendPoint>; end: string; days: number }) {
   const [hover, setHover] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -27,19 +31,22 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
 
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
-  const x = (i: number) => PAD.left + (days === 1 ? innerW / 2 : (i / (days - 1)) * innerW);
+  const x = (i: number) => PAD.left + (i / (days - 1)) * innerW;
   const y = (v: number) => PAD.top + innerH - (v / 10) * innerH;
 
-  // Segmenti continui: la linea si interrompe sui giorni non registrati.
-  const path = series
-    .map((p, i) => {
-      if (p.value === undefined) return '';
-      const prevMissing = i === 0 || series[i - 1].value === undefined;
-      return `${prevMissing ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`;
-    })
-    .join('');
+  const segments: string[] = [];
+  let current = '';
+  series.forEach((p, i) => {
+    if (p.value === undefined) {
+      if (current) segments.push(current);
+      current = '';
+      return;
+    }
+    current += `${current ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`;
+  });
+  if (current) segments.push(current);
 
-  const tickEvery = days <= 14 ? 2 : days <= 31 ? 7 : 14;
+  const tickEvery = days <= 31 ? 7 : 21;
   const ticks = series.map((p, i) => ({ p, i })).filter(({ i }) => (days - 1 - i) % tickEvery === 0);
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -51,6 +58,7 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
 
   const hp = hover !== null ? series[hover] : null;
   const leftPct = hover !== null ? (x(hover) / W) * 100 : 0;
+  const logged = series.filter((p) => p.value !== undefined);
 
   return (
     <div className="chart">
@@ -58,38 +66,55 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         role="img"
-        aria-label={`Andamento dei sintomi negli ultimi ${days} giorni`}
+        aria-label={`Media dei sintomi negli ultimi ${days} giorni: ${logged.length} giorni registrati`}
         onPointerMove={onMove}
         onPointerDown={onMove}
         onPointerLeave={() => setHover(null)}
       >
         {[0, 5, 10].map((v) => (
           <g key={v}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y(v)} y2={y(v)} stroke="var(--grid)" strokeWidth={1} />
-            <text x={PAD.left - 6} y={y(v) + 4} textAnchor="end" fontSize={11} fill="var(--text-3)">
+            <line
+              x1={PAD.left}
+              x2={W - PAD.right}
+              y1={y(v)}
+              y2={y(v)}
+              stroke="var(--line)"
+              strokeWidth={1}
+              strokeDasharray={v === 0 ? undefined : '2 4'}
+            />
+            <text x={PAD.left - 8} y={y(v) + 3.5} textAnchor="end" fontSize={10} fill="var(--ink-3)">
               {v}
             </text>
           </g>
         ))}
         {ticks.map(({ p, i }) => (
-          <text key={p.date} x={x(i)} y={H - 6} textAnchor={i === days - 1 ? 'end' : 'middle'} fontSize={11} fill="var(--text-3)">
+          <text
+            key={p.date}
+            x={x(i)}
+            y={H - 6}
+            textAnchor={i === days - 1 ? 'end' : i === 0 ? 'start' : 'middle'}
+            fontSize={10}
+            fill="var(--ink-3)"
+          >
             {formatShort(p.date)}
           </text>
         ))}
         {hover !== null && (
-          <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--text-3)" strokeWidth={1} strokeDasharray="3 3" />
+          <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--ink-3)" strokeWidth={1} />
         )}
-        <path d={path} fill="none" stroke="var(--series)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {segments.map((d, i) => (
+          <path key={i} d={d} fill="none" stroke="var(--ink-2)" strokeOpacity={0.55} strokeWidth={1.5} strokeLinejoin="round" />
+        ))}
         {series.map((p, i) =>
           p.value === undefined ? null : (
             <circle
               key={p.date}
               cx={x(i)}
               cy={y(p.value)}
-              r={hover === i ? 4.5 : days > 45 ? 2 : 3}
-              fill="var(--series)"
+              r={hover === i ? 5.5 : days > 45 ? 3 : 4}
+              fill={p.value > 0 ? `var(--heat-${heatLevel(p.value)})` : 'var(--ink-3)'}
               stroke="var(--surface)"
-              strokeWidth={2}
+              strokeWidth={1.5}
             />
           ),
         )}
@@ -99,15 +124,14 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
           className="tooltip"
           style={{
             left: `${leftPct}%`,
-            transform: `translateX(${leftPct > 60 ? 'calc(-100% - 12px)' : '12px'})`,
+            transform: `translateX(${leftPct > 55 ? 'calc(-100% - 12px)' : '12px'})`,
           }}
         >
           <strong>{formatLong(hp.date)}</strong>
-          <div>{hp.value === undefined ? 'Non registrato' : `Sintomi: ${formatScore(hp.value)} / 10`}</div>
-          {hp.detail && <div className="muted">{hp.detail}</div>}
+          {hp.value === undefined ? 'Non registrato' : `Sintomi ${formatScore(hp.value)} su 10`}
+          {hp.detail && <div className="t-foods">{hp.detail}</div>}
         </div>
       )}
     </div>
   );
 }
-

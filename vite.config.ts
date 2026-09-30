@@ -12,6 +12,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
+      // I font sono inclusi nell'app: così funziona tutto anche offline.
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png}', '**/*-latin-*.woff2'] },
       manifest: {
         name: 'Gutty – diario del colon irritabile',
         short_name: 'Gutty',
@@ -20,8 +22,8 @@ export default defineConfig({
         start_url: base,
         scope: base,
         display: 'standalone',
-        background_color: '#f6f5f1',
-        theme_color: '#1c5cab',
+        background_color: '#f4efe6',
+        theme_color: '#f4efe6',
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
