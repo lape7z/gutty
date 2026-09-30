@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { analyze, type FactorResult, type LagWindow, type Target } from '../analysis';
 import { LIFESTYLE_FACTORS } from '../defaults';
 import { useActiveSymptoms, useDays, useFactorNames } from '../hooks';
-import { EVIDENCE, Evidence, Sec, num, signed } from '../ui';
+import { EVIDENCE, Evidence, Sec, levelWord, num, signed } from '../ui';
 import { EffectChart } from './EffectChart';
 
 type LagKey = '24h' | '0' | '1' | '01' | '2';
@@ -98,9 +98,10 @@ export function InsightsView() {
     <>
       <header className="page-title">
         <div className="kicker">
-          {res.observations} giornate confrontate · media {num(res.meanScore)} su 10
+          {res.observations} giornate confrontate · in media {levelWord(res.meanScore).toLowerCase()}
         </div>
         <h1>Cosa influisce sulla tua pancia</h1>
+        <p>I numeri usano la scala delle faccine: 0 = bene, 1 = lieve, 2 = fastidio, 3 = male, 4 = malissimo.</p>
       </header>
 
       <section className="sheet">
@@ -176,7 +177,7 @@ export function InsightsView() {
           <Sec title="Tutti i fattori" aside={`${res.results.length} confrontabili`} />
           <section className="sheet">
             <p className="faint small" style={{ margin: '0 0 14px' }}>
-              Differenza della media (0–10) tra giornate con e senza ciascun fattore
+              Differenza della media (da 0 a 4) tra giornate con e senza ciascun fattore
               {showAllFactors ? '.' : ': i 12 più marcati.'}
             </p>
             <EffectChart results={factorRows} nameOf={nameOf} />
@@ -308,17 +309,17 @@ function Finding({
       <div className="compare" aria-hidden>
         <span>{isLifestyle ? 'Sì' : 'Con'}</span>
         <span className="track">
-          <i style={{ width: `${(r.meanExposed / 10) * 100}%`, background: `var(--${kind})` }} />
+          <i style={{ width: `${(r.meanExposed / 4) * 100}%`, background: `var(--${kind})` }} />
         </span>
         <span className="v">{num(r.meanExposed)}</span>
         <span>{isLifestyle ? 'No' : 'Senza'}</span>
         <span className="track">
-          <i style={{ width: `${(r.meanUnexposed / 10) * 100}%`, background: 'var(--ink-3)' }} />
+          <i style={{ width: `${(r.meanUnexposed / 4) * 100}%`, background: 'var(--ink-3)' }} />
         </span>
         <span className="v">{num(r.meanUnexposed)}</span>
       </div>
       <div className="foot">
-        {r.nExposed} giornate con, {r.nUnexposed} senza · giornate difficili {Math.round(r.badRateExposed * 100)}% contro{' '}
+        {r.nExposed} giornate con, {r.nUnexposed} senza · giornate da fastidio in su {Math.round(r.badRateExposed * 100)}% contro{' '}
         {Math.round(r.badRateUnexposed * 100)}%
       </div>
     </article>

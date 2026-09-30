@@ -1,12 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addDays, todayISO } from '../date';
 import { db, emptyDay, saveDay } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
-import { formatScore, overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
+import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
 import { LEVELS, MEALS, MOMENT_INFO, mealNow, mealsOf, momentNow, withMeals } from '../day';
 import type { DayEntry, Food, Meal, Moment, MomentLog } from '../types';
-import { Icon, Mascot, Sec, dayMood, heatLevel, intensityWord, type Face } from '../ui';
+import { Icon, Mascot, Sec, dayMood, heatLevel, levelWord, type Face } from '../ui';
 
 const BRISTOL = ['Grumi duri separati', 'Salsiccia grumosa', 'Salsiccia screpolata', 'Liscia e morbida', 'Pezzi morbidi', 'Poltiglia', 'Liquida'];
 const FALLBACK_FREQUENT = ['caffe', 'pasta-di-grano', 'pane', 'latte', 'pizza', 'cipolla', 'aglio', 'vino'];
@@ -97,7 +97,6 @@ export function DayView({ date, onDateChange }: Props) {
     update({ moments });
   };
 
-  const hasDetails = Object.keys(draft.symptoms).length > 0;
   const score = overallScore(draft, symptoms);
   const mood = dayMood(score);
   const relative = date === today ? 'Oggi' : date === addDays(today, -1) ? 'Ieri' : null;
@@ -149,7 +148,7 @@ export function DayView({ date, onDateChange }: Props) {
         <p>{mood.line}</p>
         {score !== undefined && (
           <span className="score-chip">
-            <strong>{formatScore(score)}</strong> / 10 di media
+            In media: <strong>{levelWord(score).toLowerCase()}</strong>
           </span>
         )}
       </section>
@@ -173,6 +172,16 @@ export function DayView({ date, onDateChange }: Props) {
           Feci <span className="faint">scala di Bristol</span>
         </div>
         <div className="bristol" role="group" aria-label="Scala di Bristol">
+          <button
+            className="none"
+            aria-pressed={draft.bristol === 0}
+            aria-label="Nessuna evacuazione"
+            title="Nessuna evacuazione"
+            onClick={() => update({ bristol: draft.bristol === 0 ? undefined : 0 })}
+          >
+            <BristolGlyph type={0} />
+            No
+          </button>
           {BRISTOL.map((label, i) => {
             const n = i + 1;
             return (
@@ -191,33 +200,13 @@ export function DayView({ date, onDateChange }: Props) {
         </div>
         <div className="bristol-caption">
           <span>stitichezza</span>
-          {draft.bristol ? <strong>{BRISTOL[draft.bristol - 1]}</strong> : <span>facoltativo</span>}
+          {draft.bristol === undefined ? (
+            <span>facoltativo</span>
+          ) : (
+            <strong>{draft.bristol === 0 ? 'Nessuna evacuazione' : BRISTOL[draft.bristol - 1]}</strong>
+          )}
           <span>diarrea</span>
         </div>
-        <details className="disclosure details-more" open={hasDetails || undefined}>
-          <summary>
-            <span>
-              Aggiungi dettagli
-              <span className="summary-hint">intensità di ogni sintomo, da 0 a 10</span>
-            </span>
-          </summary>
-          <div className="body">
-            {symptoms.map((s) => (
-              <SoftSlider
-                key={s.id}
-                id={s.id}
-                label={s.name}
-                value={draft.symptoms[s.id] ?? 0}
-                onChange={(v) => update({ symptoms: { ...draft.symptoms, [s.id]: v } })}
-              />
-            ))}
-            {hasDetails && (
-              <button className="btn link" style={{ marginTop: 12, marginLeft: -4 }} onClick={() => update({ symptoms: {} })}>
-                Togli i dettagli
-              </button>
-            )}
-          </div>
-        </details>
       </section>
 
       <Sec title="Cosa hai mangiato" aside={draft.foods.length ? `${draft.foods.length} in tutto` : undefined} />
@@ -383,7 +372,7 @@ function WeekStrip({
             aria-current={d === date ? 'date' : undefined}
             disabled={d > today}
             onClick={() => onSelect(d)}
-            aria-label={`${fmtWeekday.format(asDate(d))} ${asDate(d).getDate()}${logged ? `, sintomi ${formatScore(s)}` : ', non registrato'}`}
+            aria-label={`${fmtWeekday.format(asDate(d))} ${asDate(d).getDate()}${!logged ? ', non registrato' : s === undefined ? ', senza sintomi segnati' : `, in media ${levelWord(s).toLowerCase()}`}`}
           >
             <span className="wd">{fmtWeekdayShort.format(asDate(d)).slice(0, 3)}</span>
             <span className="dn">{asDate(d).getDate()}</span>
@@ -392,35 +381,6 @@ function WeekStrip({
         );
       })}
     </nav>
-  );
-}
-
-/** Slider 0-10: la parte piena si scalda lungo la scala lavanda. */
-function SoftSlider({ id, label, value, onChange }: { id: string; label: string; value: number; onChange: (v: number) => void }) {
-  const lv = heatLevel(value);
-  const color = value === 0 ? 'var(--soft-2)' : `var(--v-${lv})`;
-  return (
-    <div className="symptom">
-      <div className="symptom-head">
-        <label htmlFor={`s-${id}`}>{label}</label>
-        <span className="val">
-          <strong style={{ background: `var(--v-${lv})`, color: `var(--v-ink-${lv})` }}>{value}</strong>
-          {intensityWord(value)}
-        </span>
-      </div>
-      <input
-        id={`s-${id}`}
-        className="soft"
-        type="range"
-        min={0}
-        max={10}
-        step={1}
-        value={value}
-        aria-valuetext={`${value} su 10, ${intensityWord(value)}`}
-        style={{ '--fill': `${value * 10}%`, '--fill-c': color } as CSSProperties}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </div>
   );
 }
 
@@ -474,6 +434,13 @@ function FacePicker({
 function BristolGlyph({ type }: { type: number }) {
   const common = { viewBox: '0 0 32 18', 'aria-hidden': true } as const;
   switch (type) {
+    case 0:
+      return (
+        <svg {...common} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+          <circle cx="16" cy="9" r="6" />
+          <path d="M11.8 13.2l8.4-8.4" />
+        </svg>
+      );
     case 1:
       return (
         <svg {...common} fill="currentColor">

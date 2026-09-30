@@ -76,8 +76,7 @@ export function SettingsView() {
     const header = [
       'data',
       ...MOMENT_INFO.map((m) => m.label),
-      ...active.map((s) => `${s.name} (0-10)`),
-      'media sintomi',
+      'media (0 bene - 4 malissimo)',
       'bristol',
       'stress',
       'sonno',
@@ -92,9 +91,8 @@ export function SettingsView() {
         return [
           d.date,
           ...MOMENT_INFO.map((m) => moment(d, m.id)),
-          ...active.map((s) => d.symptoms[s.id] ?? ''),
           dayScore(d, active.map((s) => s.id), { kind: 'overall' })?.toFixed(2).replace('.', ','),
-          d.bristol,
+          d.bristol === 0 ? 'nessuna' : d.bristol,
           d.stress,
           d.sleep,
           ...MEALS.map((m) => meals[m.id].map(nameOf).join(', ')),

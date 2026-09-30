@@ -46,9 +46,17 @@ export function Icon({ name, size = 20, style }: { name: IconName; size?: number
 /* ---------------------------------------------------------------
    Intensità → scala lavanda a 5 gradini (0 = nessun sintomo)
    --------------------------------------------------------------- */
+/** Punteggio 0-4 → uno dei 5 gradini di colore (0 = nessun sintomo). */
 export function heatLevel(score: number): 0 | 1 | 2 | 3 | 4 | 5 {
   if (score <= 0) return 0;
-  return Math.min(5, Math.ceil(score / 2)) as 1 | 2 | 3 | 4 | 5;
+  return Math.min(5, Math.ceil((score * 5) / 4)) as 1 | 2 | 3 | 4 | 5;
+}
+
+const WORDS = ['Bene', 'Lieve', 'Fastidio', 'Male', 'Malissimo'];
+
+/** La parola della faccina più vicina a un punteggio 0-4 (anche medio). */
+export function levelWord(score: number): string {
+  return WORDS[Math.max(0, Math.min(4, Math.round(score)))];
 }
 
 export function heatStyle(score: number | undefined): CSSProperties {
@@ -57,21 +65,14 @@ export function heatStyle(score: number | undefined): CSSProperties {
   return { background: `var(--v-${lv})`, color: `var(--v-ink-${lv})` };
 }
 
-export function intensityWord(v: number): string {
-  if (v === 0) return 'assente';
-  if (v <= 3) return 'lieve';
-  if (v <= 6) return 'moderato';
-  return 'forte';
-}
-
 export type Face = 'hello' | 'zen' | 'happy' | 'ok' | 'meh' | 'sad' | 'awful';
 
 export function dayMood(score: number | undefined): { title: string; line: string; face: Face } {
   if (score === undefined) return { title: 'Come stai oggi?', line: 'Annota sintomi e pasti: bastano pochi tocchi.', face: 'hello' };
   if (score === 0) return { title: 'Pancia serena', line: 'Nessun sintomo oggi. Bene così.', face: 'zen' };
-  if (score < 2) return { title: 'Giornata tranquilla', line: 'Solo qualche lieve fastidio.', face: 'happy' };
-  if (score < 4) return { title: 'Qualche fastidio', line: 'Sintomi leggeri, ma ci sono.', face: 'ok' };
-  if (score < 6) return { title: 'Giornata impegnativa', line: 'Prenditi cura di te e annota cosa hai mangiato.', face: 'meh' };
+  if (score < 0.8) return { title: 'Giornata tranquilla', line: 'Solo qualche lieve fastidio.', face: 'happy' };
+  if (score < 1.6) return { title: 'Qualche fastidio', line: 'Sintomi leggeri, ma ci sono.', face: 'ok' };
+  if (score < 2.4) return { title: 'Giornata impegnativa', line: 'Prenditi cura di te e annota cosa hai mangiato.', face: 'meh' };
   return { title: 'Giornata difficile', line: 'Ci sta. Segna tutto: aiuterà a capire perché.', face: 'sad' };
 }
 

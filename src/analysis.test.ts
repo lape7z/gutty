@@ -36,7 +36,7 @@ describe('buildObservations', () => {
     const entries = [day('2026-01-01', ['latte'], 1), day('2026-01-02', [], 5), day('2026-01-04', [], 2)];
     const obs = buildObservations(entries, { symptomIds: ['dolore'], target: { kind: 'overall' }, lag: { from: 1, to: 1 } });
     expect(obs).toHaveLength(1);
-    expect(obs[0].y).toBe(5);
+    expect(obs[0].y).toBe(2); // dolore 5 su 10 → 2 su 4
     expect([...obs[0].factors]).toEqual(['latte']);
   });
 
@@ -58,8 +58,8 @@ describe('dayScore e momenti', () => {
 
   it('usa la media dei soli momenti registrati', () => {
     const e: DayEntry = { ...base, moments: { mattina: { level: 0, symptoms: [] }, sera: { level: 4, symptoms: ['gonfiore'] } } };
-    expect(dayScore(e, symptomIds, { kind: 'overall' })).toBe(5);
-    expect(dayScore(e, symptomIds, { kind: 'symptom', id: 'gonfiore' })).toBe(5);
+    expect(dayScore(e, symptomIds, { kind: 'overall' })).toBe(2);
+    expect(dayScore(e, symptomIds, { kind: 'symptom', id: 'gonfiore' })).toBe(2);
     expect(dayScore(e, symptomIds, { kind: 'symptom', id: 'dolore' })).toBe(0);
   });
 
@@ -67,15 +67,15 @@ describe('dayScore e momenti', () => {
     expect(dayScore({ ...base, foods: ['latte'] }, symptomIds, { kind: 'overall' })).toBeUndefined();
   });
 
-  it('legge i diari vecchi fatti solo di slider', () => {
+  it('legge i diari vecchi fatti solo di slider, riportandoli da 0-10 a 0-4', () => {
     const e: DayEntry = { ...base, symptoms: { dolore: 6, gonfiore: 2 } };
-    expect(dayScore(e, ['dolore', 'gonfiore'], { kind: 'overall' })).toBe(4);
+    expect(dayScore(e, ['dolore', 'gonfiore'], { kind: 'overall' })).toBeCloseTo(1.6);
   });
 
   it('per un singolo sintomo preferisce il dettaglio dello slider', () => {
     const e: DayEntry = { ...base, symptoms: { dolore: 7 }, moments: { sera: { level: 1, symptoms: ['dolore'] } } };
-    expect(dayScore(e, symptomIds, { kind: 'symptom', id: 'dolore' })).toBe(7);
-    expect(dayScore(e, symptomIds, { kind: 'overall' })).toBe(2.5);
+    expect(dayScore(e, symptomIds, { kind: 'symptom', id: 'dolore' })).toBeCloseTo(2.8);
+    expect(dayScore(e, symptomIds, { kind: 'overall' })).toBe(1);
   });
 });
 
@@ -92,16 +92,16 @@ describe('finestra delle 24 ore', () => {
       day('2026-01-02', { moments: { mattina: { level: 3, symptoms: [] } } }),
     ];
     const obs = buildObservations(entries, { symptomIds, target: { kind: 'overall' }, lag: timed });
-    // (0 + 2,5 + 7,5) / 3 per il primo giorno; il secondo ha solo la mattina, che appartiene al giorno prima.
+    // (0 + 1 + 3) / 3 per il primo giorno; il secondo ha solo la mattina, che appartiene al giorno prima.
     expect(obs).toHaveLength(1);
-    expect(obs[0].y).toBeCloseTo(10 / 3);
+    expect(obs[0].y).toBeCloseTo(4 / 3);
     expect([...obs[0].factors].sort()).toEqual(['cena-pesante', 'cipolla']);
   });
 
   it('per i diari vecchi usa la media del giorno e del giorno dopo', () => {
     const entries = [day('2026-01-01', { foods: ['latte'], symptoms: { dolore: 2 } }), day('2026-01-02', { symptoms: { dolore: 6 } })];
     const obs = buildObservations(entries, { symptomIds: ['dolore'], target: { kind: 'overall' }, lag: timed });
-    expect(obs[0].y).toBe(4);
+    expect(obs[0].y).toBeCloseTo(1.6);
   });
 });
 
@@ -110,7 +110,7 @@ describe('analyze sui dati demo', () => {
     const res = analyze(demo, { symptomIds, target: { kind: 'overall' }, lag: timed });
     const strong = res.results.filter((r) => r.confidence === 'probabile').map((r) => r.id);
     expect(strong.sort()).toEqual(['cena-pesante', 'cipolla', 'latte', 'stress-alto']);
-    expect(res.results.find((r) => r.id === 'cipolla')!.netEffect).toBeGreaterThan(1.2);
+    expect(res.results.find((r) => r.id === 'cipolla')!.netEffect).toBeGreaterThan(0.5);
   });
 
   it('distingue i sintomi: il latte gonfia, la cipolla fa male', () => {

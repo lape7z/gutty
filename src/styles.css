@@ -608,93 +608,11 @@ textarea.field:focus {
   font-variant-numeric: tabular-nums;
 }
 
-/* Slider morbido 0-10 */
-.symptom + .symptom {
-  margin-top: 22px;
-}
-.symptom-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-.symptom-head label {
-  font-weight: 650;
-}
-.symptom-head .val {
-  font-size: 0.85rem;
-  color: var(--ink-3);
-  font-weight: 500;
-}
-.symptom-head .val strong {
-  display: inline-grid;
-  place-items: center;
-  min-width: 30px;
-  height: 26px;
-  padding: 0 8px;
-  margin-right: 6px;
-  border-radius: 999px;
-  font-size: 0.88rem;
-  font-weight: 750;
-  font-variant-numeric: tabular-nums;
-  transition: background 0.15s;
-}
-input[type='range'].soft {
-  -webkit-appearance: none;
-  appearance: none;
-  display: block;
-  width: 100%;
-  height: 32px;
-  background: transparent;
-  cursor: pointer;
-  --fill: 0%;
-  --fill-c: var(--v-1);
-}
-input[type='range'].soft::-webkit-slider-runnable-track {
-  height: 10px;
-  border-radius: 999px;
-  background: linear-gradient(to right, var(--fill-c) var(--fill), var(--soft-2) var(--fill));
-}
-input[type='range'].soft::-moz-range-track {
-  height: 10px;
-  border-radius: 999px;
-  background: linear-gradient(to right, var(--fill-c) var(--fill), var(--soft-2) var(--fill));
-}
-input[type='range'].soft::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 28px;
-  height: 28px;
-  margin-top: -9px;
-  border-radius: 50%;
-  background: #fff;
-  border: 3px solid var(--fill-c);
-  box-shadow: 0 2px 8px rgb(30 27 46 / 0.18);
-  transition: transform 0.1s;
-}
-input[type='range'].soft::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  border: 3px solid var(--fill-c);
-  box-shadow: 0 2px 8px rgb(30 27 46 / 0.18);
-}
-input[type='range'].soft:active::-webkit-slider-thumb {
-  transform: scale(1.12);
-}
-.scale-legend {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 2px;
-  font-size: 0.75rem;
-  color: var(--ink-3);
-}
-
 /* Scala di Bristol */
 .bristol {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
 }
 .bristol button {
   display: flex;
@@ -906,6 +824,10 @@ input[type='range'].soft:active::-webkit-slider-thumb {
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
+.stat strong.word {
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
 .stat strong small {
   font-size: 0.6em;
   font-weight: 600;
@@ -939,6 +861,7 @@ input[type='range'].soft:active::-webkit-slider-thumb {
   width: 46px;
   height: 46px;
   border-radius: 50%;
+  background: var(--soft);
   display: grid;
   place-items: center;
   font-weight: 750;
@@ -1547,19 +1470,6 @@ details.disclosure .body {
   color: var(--ink-3);
 }
 
-details.details-more {
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-}
-details.details-more summary {
-  padding-bottom: 4px;
-}
-.summary-hint {
-  display: block;
-  font-weight: 450;
-  font-size: 0.82rem;
-  color: var(--ink-3);
-}
 
 .install {
   display: flex;

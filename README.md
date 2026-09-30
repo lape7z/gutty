@@ -2,9 +2,9 @@
 
 App web (installabile sul telefono come PWA) per tenere traccia giorno per giorno di:
 
-- **come va la pancia in tre momenti** (mattina, pomeriggio, sera e notte), con un tocco ciascuno e, se vuoi, quali sintomi
-- **intensità dei singoli sintomi** da 0 a 10, come dettaglio facoltativo
-- **scala di Bristol** per le feci
+- **come va la pancia in tre momenti** (mattina, pomeriggio, sera e notte), con un tocco ciascuno e, se vuoi, quali sintomi.
+  Una sola scala in tutta l'app, quella delle faccine: 0 = bene, 1 = lieve, 2 = fastidio, 3 = male, 4 = malissimo
+- **scala di Bristol** per le feci, oppure "no" nei giorni senza evacuazione
 - **alimenti e bevande** divisi per pasto: colazione, pranzo, cena, fuori pasto (catalogo iniziale orientato ai trigger FODMAP, estendibile), più "cena abbondante o tardiva"
 - **stress, qualità del sonno** e note libere
 
@@ -23,7 +23,7 @@ di quel pomeriggio, di quella sera e notte e della mattina dopo: così la cena c
 dello stesso giorno. Ci sono anche le finestre a giorni interi (stesso giorno, giorno dopo, entro un giorno, due giorni dopo).
 Molti trigger del colon irritabile agiscono con 6–24 ore di ritardo.
 
-- **Diff.** – differenza del punteggio medio (0–10) tra giorni con e senza.
+- **Diff.** – differenza del punteggio medio (0–4) tra giorni con e senza.
 - **Netto** – effetto stimato *a parità degli altri alimenti* (regressione ridge), utile quando due cibi vanno spesso insieme.
 - **Evidenza** – test di permutazione (nessuna ipotesi sulla distribuzione) con correzione di Benjamini-Hochberg
   per i confronti multipli: con 40 alimenti, qualche “correlazione” esce anche per puro caso.

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { addDays, formatLong, todayISO } from '../date';
-import { formatScore, overallScore, useActiveSymptoms, useDays, useFactorNames } from '../hooks';
+import { overallScore, useActiveSymptoms, useDays, useFactorNames } from '../hooks';
 import { LEVELS, MOMENT_INFO } from '../day';
-import { Icon, Sec, heatStyle } from '../ui';
+import { Icon, Mascot, Sec, heatStyle, levelWord } from '../ui';
 import { TrendChart, type TrendPoint } from './TrendChart';
 
 const RANGES = [30, 90] as const;
@@ -59,7 +59,8 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
   const monthScores = monthEntries.map((d) => scoreOf.get(d.date)).filter((v): v is number => v !== undefined);
   const elapsed = month === monthOf(today) ? Number(today.slice(8)) : month < monthOf(today) ? daysInMonth : 0;
   const avg = monthScores.length ? monthScores.reduce((a, b) => a + b, 0) / monthScores.length : undefined;
-  const hard = monthScores.filter((v) => v >= 5).length;
+  // "Difficile" = in media almeno "Fastidio"
+  const hard = monthScores.filter((v) => v >= 2).length;
 
   return (
     <>
@@ -98,7 +99,7 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
             const entry = byDate.get(d);
             const s = scoreOf.get(d);
             const future = d > today;
-            const label = `${formatLong(d)}${entry ? `: sintomi ${formatScore(s)} su 10` : future ? '' : ': non registrato'}`;
+            const label = `${formatLong(d)}${entry ? (s === undefined ? ': senza sintomi segnati' : `: in media ${levelWord(s).toLowerCase()}`) : future ? '' : ': non registrato'}`;
             return (
               <button
                 key={d}
@@ -132,8 +133,8 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
           <span>giorni annotati</span>
         </div>
         <div className="stat">
-          <strong>{formatScore(avg)}</strong>
-          <span>media sintomi</span>
+          <strong className="word">{avg === undefined ? '–' : levelWord(avg)}</strong>
+          <span>in media</span>
         </div>
         <div className="stat">
           <strong>{hard}</strong>
@@ -174,14 +175,14 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
               const moments = MOMENT_INFO.filter((m) => d.moments?.[m.id])
                 .map((m) => `${m.label} ${LEVELS[d.moments![m.id]!.level].label.toLowerCase()}`)
                 .join(' · ');
-              const meta = [d.bristol && `Bristol ${d.bristol}`, d.stress && `stress ${d.stress}/5`, d.sleep && `sonno ${d.sleep}/5`, d.bigDinner && 'cena pesante']
+              const meta = [d.bristol !== undefined && (d.bristol === 0 ? 'nessuna evacuazione' : `Bristol ${d.bristol}`), d.stress && `stress ${d.stress}/5`, d.sleep && `sonno ${d.sleep}/5`, d.bigDinner && 'cena pesante']
                 .filter(Boolean)
                 .join(' · ');
               return (
                 <li key={d.date}>
                   <button className="entry" onClick={() => onOpen(d.date)}>
-                    <span className="badge" style={heatStyle(s)} aria-label={`Sintomi ${formatScore(s)} su 10`}>
-                      {formatScore(s)}
+                    <span className="badge" aria-label={s === undefined ? 'Senza sintomi segnati' : `In media ${levelWord(s).toLowerCase()}`}>
+                      {s === undefined ? '–' : <Mascot face={LEVELS[Math.round(s)].face} size={36} still />}
                     </span>
                     <span>
                       <span className="title">{formatLong(d.date)}</span>

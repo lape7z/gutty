@@ -20,7 +20,7 @@ export interface AnalysisOptions {
   symptomIds: string[];
   target: Target;
   lag: LagWindow;
-  /** Da questo punteggio in su la giornata conta come "brutta". */
+  /** Da questo punteggio in su (0-4) la giornata conta come "difficile": 2 = "Fastidio". */
   badThreshold?: number;
   /** Esposizioni (e non esposizioni) minime per analizzare un fattore. */
   minExposures?: number;
@@ -60,38 +60,42 @@ export interface AnalysisResult {
 
 export const MOMENTS: Moment[] = ['mattina', 'pomeriggio', 'sera'];
 
-/** Un livello rapido (0-4) portato sulla stessa scala 0-10 degli slider. */
-export const LEVEL_TO_SCORE = 2.5;
+/**
+ * Scala unica dell'app: da 0 (bene) a 4 (malissimo), come le faccine.
+ * I vecchi dettagli da 0 a 10 vengono riportati su questa scala.
+ */
+export const SCALE_MAX = 4;
+const DETAIL_TO_SCALE = SCALE_MAX / 10;
 
 export function hasMoments(entry: DayEntry | undefined): boolean {
   return !!entry?.moments && MOMENTS.some((m) => entry.moments![m] !== undefined);
 }
 
-/** Punteggio 0-10 di un momento; per un singolo sintomo conta solo se era presente. */
+/** Punteggio 0-4 di un momento; per un singolo sintomo conta solo se era presente. */
 export function momentScore(entry: DayEntry | undefined, moment: Moment, target: Target): number | undefined {
   const m = entry?.moments?.[moment];
   if (!m) return undefined;
-  const score = m.level * LEVEL_TO_SCORE;
+  const score = m.level;
   if (target.kind === 'overall') return score;
   return m.symptoms.includes(target.id) ? score : 0;
 }
 
-/** Punteggio 0-10 dei soli dettagli (slider); undefined se non ci sono. */
+/** Punteggio dei vecchi dettagli (slider 0-10), riportato sulla scala 0-4; undefined se non ci sono. */
 function detailScore(entry: DayEntry, symptomIds: string[], target: Target): number | undefined {
   if (Object.keys(entry.symptoms).length === 0) return undefined;
-  if (target.kind === 'symptom') return entry.symptoms[target.id] ?? 0;
+  if (target.kind === 'symptom') return (entry.symptoms[target.id] ?? 0) * DETAIL_TO_SCALE;
   if (symptomIds.length === 0) return undefined;
   const sum = symptomIds.reduce((acc, id) => acc + (entry.symptoms[id] ?? 0), 0);
-  return sum / symptomIds.length;
+  return (sum / symptomIds.length) * DETAIL_TO_SCALE;
 }
 
 /**
- * Punteggio 0-10 della giornata. I momenti registrati hanno la precedenza; per un singolo sintomo
+ * Punteggio 0-4 della giornata. I momenti registrati hanno la precedenza; per un singolo sintomo
  * vince il dettaglio dello slider, se c'è. Undefined se la giornata non ha sintomi registrati:
  * un momento lasciato vuoto non vale "zero".
  */
 export function dayScore(entry: DayEntry, symptomIds: string[], target: Target): number | undefined {
-  if (target.kind === 'symptom' && entry.symptoms[target.id] !== undefined) return entry.symptoms[target.id];
+  if (target.kind === 'symptom' && entry.symptoms[target.id] !== undefined) return entry.symptoms[target.id] * DETAIL_TO_SCALE;
   if (hasMoments(entry)) {
     const scores = MOMENTS.map((m) => momentScore(entry, m, target)).filter((v): v is number => v !== undefined);
     return scores.reduce((a, b) => a + b, 0) / scores.length;
@@ -269,7 +273,7 @@ function confidenceOf(p: number, q: number, nExposed: number): Confidence {
 }
 
 export function analyze(entries: DayEntry[], opts: AnalysisOptions): AnalysisResult {
-  const badThreshold = opts.badThreshold ?? 5;
+  const badThreshold = opts.badThreshold ?? 2;
   const minExposures = opts.minExposures ?? 3;
   const perms = opts.permutations ?? 2000;
   const rand = mulberry32(opts.seed ?? 1);

@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { addDays, formatLong, formatShort } from '../date';
-import { formatScore } from '../hooks';
-import { heatLevel } from '../ui';
+import { heatLevel, levelWord } from '../ui';
 
 export interface TrendPoint {
   date: string;
@@ -11,10 +10,15 @@ export interface TrendPoint {
 
 const W = 400;
 const H = 168;
-const PAD = { top: 10, right: 6, bottom: 24, left: 22 };
+const PAD = { top: 10, right: 6, bottom: 24, left: 56 };
+const SCALE = [
+  { v: 0, label: 'Bene' },
+  { v: 2, label: 'Fastidio' },
+  { v: 4, label: 'Malissimo' },
+];
 
 /**
- * Andamento giornaliero della media dei sintomi (0-10). La linea si interrompe sui giorni non
+ * Andamento giornaliero della media dei sintomi (0 = bene, 4 = malissimo). La linea si interrompe sui giorni non
  * registrati; i punti usano la stessa scala di colore del calendario.
  */
 export function TrendChart({ points, end, days }: { points: Map<string, TrendPoint>; end: string; days: number }) {
@@ -32,7 +36,7 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
   const x = (i: number) => PAD.left + (i / (days - 1)) * innerW;
-  const y = (v: number) => PAD.top + innerH - (v / 10) * innerH;
+  const y = (v: number) => PAD.top + innerH - (v / 4) * innerH;
 
   const segments: string[] = [];
   let current = '';
@@ -71,7 +75,7 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
         onPointerDown={onMove}
         onPointerLeave={() => setHover(null)}
       >
-        {[0, 5, 10].map((v) => (
+        {SCALE.map(({ v, label }) => (
           <g key={v}>
             <line
               x1={PAD.left}
@@ -83,7 +87,7 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
               strokeDasharray={v === 0 ? undefined : '4 4'}
             />
             <text x={PAD.left - 8} y={y(v) + 3.5} textAnchor="end" fontSize={9} fontWeight={500} fill="var(--ink-3)">
-              {v}
+              {label}
             </text>
           </g>
         ))}
@@ -131,7 +135,7 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
           }}
         >
           <strong>{formatLong(hp.date)}</strong>
-          {hp.value === undefined ? 'Non registrato' : `Sintomi ${formatScore(hp.value)} su 10`}
+          {hp.value === undefined ? 'Non registrato' : `In media: ${levelWord(hp.value).toLowerCase()}`}
           {hp.detail && <div className="t-foods">{hp.detail}</div>}
         </div>
       )}

@@ -2,7 +2,7 @@ import type { FactorResult } from '../analysis';
 import { signed } from '../ui';
 
 /**
- * Barre divergenti: di quanto cambia il punteggio medio dei sintomi quando il fattore è presente.
+ * Barre divergenti: di quanto cambia il punteggio medio (0-4) quando il fattore è presente.
  * A destra (rosso) = sintomi peggiori, a sinistra (blu) = sintomi migliori.
  */
 export function EffectChart({ results, nameOf }: { results: FactorResult[]; nameOf: (id: string) => string }) {
