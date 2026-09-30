@@ -78,11 +78,11 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
               x2={W - PAD.right}
               y1={y(v)}
               y2={y(v)}
-              stroke="var(--line)"
-              strokeWidth={1}
-              strokeDasharray={v === 0 ? undefined : '2 4'}
+              stroke={v === 0 ? 'var(--edge)' : 'var(--hair)'}
+              strokeWidth={v === 0 ? 2 : 1}
+              strokeDasharray={v === 0 ? undefined : '3 3'}
             />
-            <text x={PAD.left - 8} y={y(v) + 3.5} textAnchor="end" fontSize={10} fill="var(--ink-3)">
+            <text x={PAD.left - 8} y={y(v) + 3.5} textAnchor="end" fontSize={9} fontFamily="var(--mono)" fontWeight={600} fill="var(--ink-3)">
               {v}
             </text>
           </g>
@@ -93,31 +93,37 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
             x={x(i)}
             y={H - 6}
             textAnchor={i === days - 1 ? 'end' : i === 0 ? 'start' : 'middle'}
-            fontSize={10}
+            fontSize={9}
+            fontFamily="var(--mono)"
+            fontWeight={600}
             fill="var(--ink-3)"
           >
             {formatShort(p.date)}
           </text>
         ))}
         {hover !== null && (
-          <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--ink-3)" strokeWidth={1} />
+          <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--ink)" strokeWidth={1.5} strokeDasharray="3 3" />
         )}
         {segments.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke="var(--ink-2)" strokeOpacity={0.55} strokeWidth={1.5} strokeLinejoin="round" />
+          <path key={i} d={d} fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinejoin="round" />
         ))}
-        {series.map((p, i) =>
-          p.value === undefined ? null : (
-            <circle
+        {series.map((p, i) => {
+          if (p.value === undefined) return null;
+          const size = hover === i ? 10 : days > 45 ? 5 : 7;
+          return (
+            <rect
               key={p.date}
-              cx={x(i)}
-              cy={y(p.value)}
-              r={hover === i ? 5.5 : days > 45 ? 3 : 4}
-              fill={p.value > 0 ? `var(--heat-${heatLevel(p.value)})` : 'var(--ink-3)'}
-              stroke="var(--surface)"
+              x={x(i) - size / 2}
+              y={y(p.value) - size / 2}
+              width={size}
+              height={size}
+              rx={1.5}
+              fill={p.value > 0 ? `var(--v-${heatLevel(p.value)})` : 'var(--card)'}
+              stroke="var(--edge)"
               strokeWidth={1.5}
             />
-          ),
-        )}
+          );
+        })}
       </svg>
       {hp && (
         <div

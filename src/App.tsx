@@ -12,7 +12,7 @@ const TABS: { id: Tab; label: string; icon: IconName }[] = [
   { id: 'oggi', label: 'Oggi', icon: 'today' },
   { id: 'diario', label: 'Diario', icon: 'diary' },
   { id: 'analisi', label: 'Analisi', icon: 'insights' },
-  { id: 'impostazioni', label: 'Impostazioni', icon: 'settings' },
+  { id: 'impostazioni', label: 'Setup', icon: 'settings' },
 ];
 
 export function App() {
@@ -27,6 +27,13 @@ export function App() {
   return (
     <>
       <main className="app">
+        <header className="topbar">
+          <span className="wordmark">
+            <i aria-hidden />
+            GUTTY
+          </span>
+          <span className="mono">diario ibs · v0.3</span>
+        </header>
         {tab === 'oggi' && <DayView date={date} onDateChange={setDate} />}
         {tab === 'diario' && (
           <DiaryView
@@ -40,12 +47,14 @@ export function App() {
         {tab === 'impostazioni' && <SettingsView />}
       </main>
       <nav className="tabbar" aria-label="Sezioni">
-        {TABS.map((t) => (
-          <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} onClick={() => go(t.id)}>
-            <Icon name={t.icon} size={22} />
-            {t.label}
-          </button>
-        ))}
+        <div className="tabbar-inner">
+          {TABS.map((t) => (
+            <button key={t.id} aria-current={tab === t.id ? 'page' : undefined} onClick={() => go(t.id)}>
+              <Icon name={t.icon} size={22} />
+              {t.label}
+            </button>
+          ))}
+        </div>
       </nav>
     </>
   );

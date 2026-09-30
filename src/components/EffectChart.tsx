@@ -11,8 +11,8 @@ export function EffectChart({ results, nameOf }: { results: FactorResult[]; name
     <>
       <div className="effects">
         {results.map((r) => {
-          // Massimo 40% per lato, così resta spazio per il valore accanto alla barra.
-          const pct = (Math.abs(r.diff) / maxAbs) * 40;
+          // Massimo 36% per lato, così resta spazio per il valore accanto alla barra.
+          const pct = (Math.abs(r.diff) / maxAbs) * 36;
           const worse = r.diff >= 0;
           const label = `${nameOf(r.id)}: ${signed(r.diff)} punti (${r.nExposed} giorni con, ${r.nUnexposed} senza)`;
           return (
@@ -34,8 +34,8 @@ export function EffectChart({ results, nameOf }: { results: FactorResult[]; name
         })}
       </div>
       <div className="effects-axis">
-        <span>← sintomi migliori</span>
-        <span>sintomi peggiori →</span>
+        <span>← meglio</span>
+        <span>peggio →</span>
       </div>
     </>
   );

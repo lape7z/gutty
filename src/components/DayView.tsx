@@ -5,14 +5,14 @@ import { db, emptyDay, saveDay } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { formatScore, overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
 import type { DayEntry, Food } from '../types';
-import { SectionLabel, Icon, dayMood, heatLevel, intensityWord } from '../ui';
+import { Icon, Sec, dayMood, heatLevel, intensityWord } from '../ui';
 
 const BRISTOL = ['Grumi duri separati', 'Salsiccia grumosa', 'Salsiccia screpolata', 'Liscia e morbida', 'Pezzi morbidi', 'Poltiglia', 'Liquida'];
 const FALLBACK_FREQUENT = ['caffe', 'pasta-di-grano', 'pane', 'latte', 'pizza', 'cipolla', 'aglio', 'vino'];
 
-const fmtDayMonth = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long' });
 const fmtWeekday = new Intl.DateTimeFormat('it-IT', { weekday: 'long' });
 const fmtWeekdayShort = new Intl.DateTimeFormat('it-IT', { weekday: 'short' });
+const fmtMonthShort = new Intl.DateTimeFormat('it-IT', { month: 'short' });
 
 function asDate(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number);
@@ -79,37 +79,48 @@ export function DayView({ date, onDateChange }: Props) {
   const touched = draft.updatedAt > 0;
   const score = touched ? overallScore(draft, symptoms) : undefined;
   const mood = dayMood(score);
+  const d = asDate(date);
   const relative = date === today ? 'Oggi' : date === addDays(today, -1) ? 'Ieri' : null;
-  const weekday = fmtWeekday.format(asDate(date));
+  const stamp = `${fmtWeekdayShort.format(d)} ${d.getDate()} ${fmtMonthShort.format(d)}`.replace('.', '');
 
   return (
     <>
-      <header className="page-head">
-        <span className="eyebrow">{relative ? `${relative} · ${weekday}` : weekday}</span>
-        <h1 className="display">{fmtDayMonth.format(asDate(date))}</h1>
-      </header>
-
-      <WeekStrip date={date} today={today} scores={scores} onSelect={onDateChange} />
-
-      <section className="sheet summary">
-        <ScoreRing score={score} />
-        <div>
-          <h2 className="display">{mood.title}</h2>
-          <p>{mood.line}</p>
+      <section className="hero" aria-live="polite">
+        <div className="hero-top">
+          <span className="mono">
+            {relative ? `${relative} · ` : ''}
+            {stamp}
+          </span>
           {relative !== 'Oggi' && (
-            <button className="btn quiet" style={{ marginLeft: -10, marginTop: 4 }} onClick={() => onDateChange(today)}>
-              Vai a oggi
+            <button className="today-btn" onClick={() => onDateChange(today)}>
+              Vai a oggi →
             </button>
           )}
         </div>
+        <div className="hero-main">
+          <div>
+            <h1 className="xp">{mood.title}</h1>
+            <p>{mood.line}</p>
+          </div>
+          <div className="score" aria-label={score === undefined ? 'Nessun dato' : `Media sintomi ${formatScore(score)} su 10`}>
+            <strong>{formatScore(score)}</strong>
+            <span>/ 10</span>
+          </div>
+        </div>
+        <div className="hero-meter" aria-hidden>
+          {Array.from({ length: 10 }, (_, i) => (
+            <i key={i} className={score !== undefined && i < Math.round(score) ? 'on' : ''} />
+          ))}
+        </div>
       </section>
 
-      <SectionLabel title="Sintomi" aside="tocca le barre" />
+      <WeekStrip date={date} today={today} scores={scores} onSelect={onDateChange} />
+
+      <Sec n={1} title="Sintomi" aside="da 0 a 10" />
       <section className="sheet">
-        {symptoms.map((s, i) => (
-          <IntensityScale
+        {symptoms.map((s) => (
+          <Meter
             key={s.id}
-            showLegend={i === 0}
             id={s.id}
             label={s.name}
             value={draft.symptoms[s.id] ?? 0}
@@ -138,13 +149,13 @@ export function DayView({ date, onDateChange }: Props) {
           })}
         </div>
         <div className="bristol-caption">
-          <span>stitichezza</span>
+          <span>← stitichezza</span>
           {draft.bristol ? <strong>{BRISTOL[draft.bristol - 1]}</strong> : <span>facoltativo</span>}
-          <span>diarrea</span>
+          <span>diarrea →</span>
         </div>
       </section>
 
-      <SectionLabel title="Cibo e bevande" aside={draft.foods.length ? `${draft.foods.length} nel piatto` : undefined} />
+      <Sec n={2} title="Nel piatto" aside={draft.foods.length ? `${draft.foods.length} voci` : undefined} />
       <section className="sheet">
         <FoodPicker
           foods={foods}
@@ -160,15 +171,9 @@ export function DayView({ date, onDateChange }: Props) {
         />
       </section>
 
-      <SectionLabel title="Come stai" />
+      <Sec n={3} title="Testa e sonno" />
       <section className="sheet">
-        <FivePoint
-          label="Stress"
-          value={draft.stress}
-          low="rilassato"
-          high="molto stressato"
-          onChange={(stress) => update({ stress })}
-        />
+        <FivePoint label="Stress" value={draft.stress} low="zen" high="al limite" onChange={(stress) => update({ stress })} />
         <div style={{ height: 18 }} />
         <FivePoint label="Sonno" value={draft.sleep} low="pessimo" high="ottimo" onChange={(sleep) => update({ sleep })} />
         <hr className="divider" />
@@ -187,10 +192,10 @@ export function DayView({ date, onDateChange }: Props) {
       <p className="saved">
         {touched ? (
           <>
-            <Icon name="check" size={16} /> Salvato sul dispositivo
+            <Icon name="check" size={14} /> Salvato sul dispositivo
           </>
         ) : (
-          'Le modifiche si salvano da sole'
+          'Si salva da solo'
         )}
       </p>
     </>
@@ -236,7 +241,11 @@ function WeekStrip({
             <span className="dn">{asDate(d).getDate()}</span>
             <span
               className="dot"
-              style={logged && s !== undefined ? { background: `var(--heat-${heatLevel(s)})`, boxShadow: 'none' } : undefined}
+              style={
+                logged && s !== undefined
+                  ? { background: s > 0 ? `var(--v-${heatLevel(s)})` : 'var(--ink-3)' }
+                  : { background: 'transparent', border: '1.5px dashed var(--ink-3)' }
+              }
             />
           </button>
         );
@@ -253,75 +262,35 @@ function WeekStrip({
   );
 }
 
-function ScoreRing({ score }: { score: number | undefined }) {
-  const r = 38;
-  const c = 2 * Math.PI * r;
-  const frac = score === undefined ? 0 : Math.max(0.02, score / 10);
-  return (
-    <div className="ring" role="img" aria-label={score === undefined ? 'Nessun dato' : `Media sintomi ${formatScore(score)} su 10`}>
-      <svg viewBox="0 0 88 88">
-        <circle cx="44" cy="44" r={r} fill="none" stroke="var(--heat-0)" strokeWidth="7" />
-        {score !== undefined && score > 0 && (
-          <circle
-            cx="44"
-            cy="44"
-            r={r}
-            fill="none"
-            stroke={`var(--heat-${Math.max(1, heatLevel(score))})`}
-            strokeWidth="7"
-            strokeLinecap="round"
-            strokeDasharray={`${frac * c} ${c}`}
-          />
-        )}
-      </svg>
-      <div className="ring-value">
-        <strong>{formatScore(score)}</strong>
-        <span>su 10</span>
-      </div>
-    </div>
-  );
-}
-
-function IntensityScale({
-  id,
-  label,
-  value,
-  showLegend,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: number;
-  showLegend: boolean;
-  onChange: (v: number) => void;
-}) {
+/** Misuratore a 11 segmenti (0-10): i segmenti accesi si colorano lungo la scala viola. */
+function Meter({ id, label, value, onChange }: { id: string; label: string; value: number; onChange: (v: number) => void }) {
   return (
     <div className="symptom">
       <div className="symptom-head">
         <label id={`lbl-${id}`}>{label}</label>
         <span className="val">
-          <strong>{value}</strong>
+          <strong>{String(value).padStart(2, '0')}</strong>
           {intensityWord(value)}
         </span>
       </div>
-      <div className="scale" role="group" aria-labelledby={`lbl-${id}`}>
+      <div className="meter" role="group" aria-labelledby={`lbl-${id}`}>
         {Array.from({ length: 11 }, (_, i) => {
-          const on = i <= value && value > 0 && i > 0;
-          const height = i === 0 ? 5 : 8 + i * 2.8;
-          const bg = on ? `var(--heat-${Math.ceil(i / 2)})` : i === 0 && value === 0 ? 'var(--ink-3)' : undefined;
+          const on = i === 0 ? value === 0 : i <= value;
+          const lv = Math.ceil(i / 2);
           return (
-            <button key={i} aria-label={`${label}: ${i}`} aria-pressed={value === i} onClick={() => onChange(i)}>
-              <span style={{ height, background: bg }} />
+            <button
+              key={i}
+              className={`${i === 0 ? 'zero ' : ''}${on ? 'on' : ''}`}
+              style={on && i > 0 ? { background: `var(--v-${lv})`, color: `var(--v-ink-${lv})` } : undefined}
+              aria-label={`${label}: ${i}`}
+              aria-pressed={value === i}
+              onClick={() => onChange(i)}
+            >
+              {i === 0 || i === value ? i : ''}
             </button>
           );
         })}
       </div>
-      {showLegend && (
-        <div className="scale-legend" aria-hidden>
-          <span>0 · nessuno</span>
-          <span>insopportabile · 10</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -460,22 +429,22 @@ function FoodPicker({
   return (
     <>
       {selected.length === 0 ? (
-        <p className="plate-empty">Il piatto è vuoto. Cerca o tocca gli alimenti qui sotto.</p>
+        <p className="plate-empty">Piatto vuoto. Cerca o tocca gli alimenti qui sotto.</p>
       ) : (
         <div className="chips" aria-label="Nel piatto">
           {selected.map((id) => (
             <button key={id} className="chip on-plate" onClick={() => onToggle(id)} aria-label={`Rimuovi ${byId.get(id)?.name ?? id}`}>
               {byId.get(id)?.name ?? id}
               <span className="x">
-                <Icon name="x" size={14} />
+                <Icon name="x" size={13} />
               </span>
             </button>
           ))}
         </div>
       )}
       {onCopyYesterday && (
-        <button className="btn quiet" style={{ marginLeft: -10, marginTop: 6 }} onClick={onCopyYesterday}>
-          <Icon name="plus" size={16} /> Aggiungi quello di ieri
+        <button className="btn link" style={{ marginTop: 10 }} onClick={onCopyYesterday}>
+          + Aggiungi quello di ieri
         </button>
       )}
 
@@ -490,7 +459,7 @@ function FoodPicker({
         <Icon name="search" size={18} />
         <input type="search" placeholder="Cerca o aggiungi…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Cerca alimento" />
         {search && (
-          <button type="button" className="icon-btn" style={{ width: 32, height: 32 }} aria-label="Svuota ricerca" onClick={() => setSearch('')}>
+          <button type="button" aria-label="Svuota ricerca" onClick={() => setSearch('')} style={{ display: 'grid' }}>
             <Icon name="x" size={16} />
           </button>
         )}
@@ -506,7 +475,7 @@ function FoodPicker({
               </button>
             ))}
             {!exact && (
-              <button className="chip" style={{ borderStyle: 'dashed' }} onClick={() => void submit()}>
+              <button className="chip dashed" onClick={() => void submit()}>
                 <Icon name="plus" size={16} /> Crea “{search.trim()}”
               </button>
             )}
@@ -516,7 +485,7 @@ function FoodPicker({
         <>
           {frequentFoods.length > 0 && (
             <>
-              <div className="sub-label">I più frequenti</div>
+              <div className="sub-label">I soliti</div>
               <div className="chips">
                 {frequentFoods.map((f) => (
                   <button key={f.id} className="chip" aria-pressed={false} onClick={() => onToggle(f.id)}>
@@ -534,7 +503,7 @@ function FoodPicker({
               </button>
             ))}
           </div>
-          <div className="chips" style={{ marginTop: 12 }}>
+          <div className="chips" style={{ marginTop: 10 }}>
             {active
               .filter((f) => f.category === category)
               .map((f) => (

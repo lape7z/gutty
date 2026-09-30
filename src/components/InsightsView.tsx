@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { analyze, type FactorResult, type LagWindow, type Target } from '../analysis';
 import { LIFESTYLE_FACTORS } from '../defaults';
 import { useActiveSymptoms, useDays, useFactorNames } from '../hooks';
-import { EVIDENCE, Evidence, SectionLabel, num, signed } from '../ui';
+import { EVIDENCE, Evidence, Sec, num, signed } from '../ui';
 import { EffectChart } from './EffectChart';
 
 type LagKey = '0' | '1' | '01' | '2';
@@ -83,13 +83,12 @@ export function InsightsView() {
 
   return (
     <>
-      <header className="page-head">
-        <span className="eyebrow">Analisi</span>
-        <h1 className="display">Cosa ti fa stare peggio</h1>
-        <p>
-          Su {res.observations} {res.observations === 1 ? 'giornata' : 'giornate'} confrontabili · media{' '}
-          {num(res.meanScore)} su 10
-        </p>
+      <header className="page-title">
+        <span className="mono">
+          {res.observations} giornate confrontabili · media {num(res.meanScore)}/10
+        </span>
+        <h1 className="xp">Chi è stato?</h1>
+        <p>Cosa c’è nei giorni in cui la pancia protesta, e cosa no.</p>
       </header>
 
       <section className="sheet">
@@ -117,19 +116,21 @@ export function InsightsView() {
       </section>
 
       {res.observations < RELIABLE_DAYS && (
-        <section className="note" style={{ marginTop: 12 }}>
-          <strong style={{ color: 'var(--ink)' }}>
-            {res.observations} di {RELIABLE_DAYS} giornate
+        <section className="note" style={{ marginTop: 14 }}>
+          <strong>
+            {res.observations}/{RELIABLE_DAYS} giornate
           </strong>{' '}
           per risultati affidabili.
           <div className="progress" aria-hidden>
-            <i style={{ width: `${(res.observations / RELIABLE_DAYS) * 100}%` }} />
+            {Array.from({ length: RELIABLE_DAYS }, (_, i) => (
+              <i key={i} className={i < res.observations ? 'on' : ''} />
+            ))}
           </div>
           Registra con costanza, anche nei giorni senza sintomi: servono per il confronto.
         </section>
       )}
 
-      <SectionLabel title="Possibili trigger" />
+      <Sec n={1} title="Sospettati" aside={triggers.length ? `${visibleTriggers.length} di ${triggers.length}` : undefined} />
       {triggers.length === 0 ? (
         <p className="note">
           {res.results.length === 0
@@ -138,11 +139,11 @@ export function InsightsView() {
         </p>
       ) : (
         <section className="sheet flush">
-          {visibleTriggers.map((r) => (
-            <Finding key={r.id} r={r} name={nameOf(r.id)} sentence={sentence(r)} kind="worse" />
+          {visibleTriggers.map((r, i) => (
+            <Finding key={r.id} rank={i + 1} r={r} name={nameOf(r.id)} sentence={sentence(r)} kind="worse" />
           ))}
           {strong.length > 0 && triggers.length > strong.length && (
-            <button className="btn quiet" style={{ margin: '0 0 12px -10px' }} onClick={() => setShowWeak((v) => !v)}>
+            <button className="btn link" style={{ margin: '0 0 12px' }} onClick={() => setShowWeak((v) => !v)}>
               {showWeak ? 'Nascondi gli indizi deboli' : `Mostra altri ${triggers.length - strong.length} indizi deboli`}
             </button>
           )}
@@ -151,10 +152,10 @@ export function InsightsView() {
 
       {helpers.length > 0 && (
         <>
-          <SectionLabel title="Legati a giornate migliori" />
+          <Sec n={2} title="Alibi" aside="legati a giornate migliori" />
           <section className="sheet flush">
-            {helpers.map((r) => (
-              <Finding key={r.id} r={r} name={nameOf(r.id)} sentence={sentence(r)} kind="better" />
+            {helpers.map((r, i) => (
+              <Finding key={r.id} rank={i + 1} r={r} name={nameOf(r.id)} sentence={sentence(r)} kind="better" />
             ))}
           </section>
         </>
@@ -162,7 +163,7 @@ export function InsightsView() {
 
       {res.results.length > 0 && (
         <>
-          <SectionLabel title="Tutti i fattori" aside={`${res.results.length} confrontabili`} />
+          <Sec n={helpers.length ? 3 : 2} title="Tutti i fattori" aside={`${res.results.length} confrontabili`} />
           <section className="sheet">
             <p className="faint small" style={{ margin: '0 0 14px' }}>
               Differenza della media (0–10) tra giornate con e senza ciascun fattore
@@ -170,11 +171,11 @@ export function InsightsView() {
             </p>
             <EffectChart results={factorRows} nameOf={nameOf} />
             {res.results.length > 12 && (
-              <button className="btn quiet" style={{ margin: '10px 0 0 -10px' }} onClick={() => setShowAllFactors((v) => !v)}>
+              <button className="btn link" style={{ marginTop: 10 }} onClick={() => setShowAllFactors((v) => !v)}>
                 {showAllFactors ? 'Mostra solo i più marcati' : `Mostra tutti i ${res.results.length} fattori`}
               </button>
             )}
-            <details className="disclosure" style={{ marginTop: 14, borderTop: '1px solid var(--line)' }}>
+            <details className="disclosure" style={{ marginTop: 10, borderTop: '2px solid var(--hair)' }}>
               <summary>Tabella dettagliata</summary>
               <div className="body table-wrap">
                 <table>
@@ -209,7 +210,7 @@ export function InsightsView() {
       )}
 
       {res.insufficient.length > 0 && (
-        <details className="disclosure" style={{ margin: '8px 4px 0' }}>
+        <details className="disclosure" style={{ marginTop: 10 }}>
           <summary>
             <span>
               Dati insufficienti per {res.insufficient.length} fattori
@@ -229,7 +230,7 @@ export function InsightsView() {
         </details>
       )}
 
-      <SectionLabel title="Come leggere i risultati" />
+      <Sec n={helpers.length ? 4 : 3} title="Istruzioni" />
       <section className="sheet flush">
         <details className="disclosure">
           <summary>Cosa vuol dire “evidenza”</summary>
@@ -270,16 +271,35 @@ export function InsightsView() {
   );
 }
 
-function Finding({ r, name, sentence, kind }: { r: FactorResult; name: string; sentence: string; kind: 'worse' | 'better' }) {
+function Finding({
+  r,
+  rank,
+  name,
+  sentence,
+  kind,
+}: {
+  r: FactorResult;
+  rank: number;
+  name: string;
+  sentence: string;
+  kind: 'worse' | 'better';
+}) {
   const isLifestyle = r.id in LIFESTYLE_FACTORS;
   return (
     <article className="finding">
-      <h3>{name}</h3>
-      <div className={`delta ${kind}`}>
-        {signed(r.diff)}
-        <small>punti</small>
+      <div className="finding-head">
+        <span className="rank">#{String(rank).padStart(2, '0')}</span>
+        <div>
+          <h3>{name}</h3>
+          <div className="evidence-wrap">
+            <Evidence confidence={r.confidence} />
+          </div>
+        </div>
+        <div className={`delta ${kind}`}>
+          {signed(r.diff)}
+          <small>punti</small>
+        </div>
       </div>
-      <Evidence confidence={r.confidence} />
       <p>{sentence}</p>
       <div className="compare" aria-hidden>
         <span>{isLifestyle ? 'Sì' : 'Con'}</span>
@@ -293,10 +313,10 @@ function Finding({ r, name, sentence, kind }: { r: FactorResult; name: string; s
         </span>
         <span className="v">{num(r.meanUnexposed)}</span>
       </div>
-      <p className="faint small" style={{ marginTop: 8 }}>
-        {r.nExposed} giornate con, {r.nUnexposed} senza · giornate difficili {Math.round(r.badRateExposed * 100)}% contro{' '}
+      <div className="foot">
+        {r.nExposed} gg con · {r.nUnexposed} senza · giornate difficili {Math.round(r.badRateExposed * 100)}% vs{' '}
         {Math.round(r.badRateUnexposed * 100)}%
-      </p>
+      </div>
     </article>
   );
 }

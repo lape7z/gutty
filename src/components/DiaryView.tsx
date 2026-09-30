@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { addDays, formatLong, todayISO } from '../date';
 import { formatScore, overallScore, useActiveSymptoms, useDays, useFactorNames } from '../hooks';
-import { Icon, SectionLabel, heatStyle } from '../ui';
+import { Icon, Sec, heatStyle } from '../ui';
 import { TrendChart, type TrendPoint } from './TrendChart';
 
 const RANGES = [30, 90] as const;
@@ -62,14 +62,14 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
 
   return (
     <>
-      <header className="page-head">
-        <span className="eyebrow">Diario</span>
-        <h1 className="display">Il tuo mese</h1>
+      <header className="page-title">
+        <span className="mono">Archivio · {days.length} giornate</span>
+        <h1 className="xp">Diario</h1>
       </header>
 
       <section className="sheet">
         <div className="month-head">
-          <h2 className="display" style={{ textTransform: 'capitalize' }}>
+          <h2 className="xp">
             {fmtMonth.format(new Date(y, m - 1, 1))}
           </h2>
           <button className="icon-btn" aria-label="Mese precedente" onClick={() => setMonth(shiftMonth(month, -1))}>
@@ -113,26 +113,24 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
             );
           })}
         </div>
-        <div className="heat-legend" aria-hidden>
-          <span>nessun sintomo</span>
-          <span className="sp" />
+        <div className="legend" aria-hidden>
+          <span>0</span>
           {[0, 1, 2, 3, 4, 5].map((lv) => (
-            <i key={lv} style={{ background: `var(--heat-${lv})` }} />
+            <i key={lv} style={{ background: `var(--v-${lv})` }} />
           ))}
-          <span className="sp" />
-          <span>forti</span>
+          <span>10</span>
         </div>
       </section>
 
-      <div className="stats" style={{ marginTop: 12 }}>
+      <div className="stats">
         <div className="stat">
           <strong>
             {monthEntries.length}
-            <span className="faint" style={{ fontSize: '0.55em' }}>
+            <span className="faint" style={{ fontSize: '0.5em' }}>
               /{elapsed}
             </span>
           </strong>
-          <span>giorni registrati</span>
+          <span>giorni segnati</span>
         </div>
         <div className="stat">
           <strong>{formatScore(avg)}</strong>
@@ -146,13 +144,14 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
 
       {days.length > 1 && (
         <>
-          <SectionLabel
+          <Sec
+            n={1}
             title="Andamento"
             aside={
               <span className="pills" style={{ margin: 0, padding: 0 }} role="group" aria-label="Periodo">
                 {RANGES.map((r) => (
                   <button key={r} className="pill" aria-pressed={range === r} onClick={() => setRange(r)}>
-                    {r} giorni
+                    {r}g
                   </button>
                 ))}
               </span>
@@ -164,7 +163,7 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
         </>
       )}
 
-      <SectionLabel title="Giornate" aside={monthEntries.length ? `${monthEntries.length} registrate` : undefined} />
+      <Sec n={days.length > 1 ? 2 : 1} title="Giornate" aside={monthEntries.length ? `${monthEntries.length} nel mese` : undefined} />
       {monthEntries.length === 0 ? (
         <p className="note">
           Nessuna giornata registrata in questo mese.
@@ -196,7 +195,7 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
             })}
           </ul>
           {monthEntries.length > 7 && (
-            <button className="btn quiet" style={{ margin: '4px 0 10px -10px' }} onClick={() => setShowAll((v) => !v)}>
+            <button className="btn link" style={{ margin: '0 0 10px' }} onClick={() => setShowAll((v) => !v)}>
               {showAll ? 'Mostra meno' : `Mostra tutte (${monthEntries.length})`}
             </button>
           )}

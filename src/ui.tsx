@@ -44,7 +44,7 @@ export function Icon({ name, size = 20, style }: { name: IconName; size?: number
 }
 
 /* ---------------------------------------------------------------
-   Intensità → scala terracotta a 5 gradini (0 = nessun sintomo)
+   Intensità → scala viola a 5 gradini (0 = nessun sintomo)
    --------------------------------------------------------------- */
 export function heatLevel(score: number): 0 | 1 | 2 | 3 | 4 | 5 {
   if (score <= 0) return 0;
@@ -54,7 +54,7 @@ export function heatLevel(score: number): 0 | 1 | 2 | 3 | 4 | 5 {
 export function heatStyle(score: number | undefined): CSSProperties {
   if (score === undefined) return {};
   const lv = heatLevel(score);
-  return { background: `var(--heat-${lv})`, color: `var(--heat-ink-${lv})` };
+  return { background: `var(--v-${lv})`, color: `var(--v-ink-${lv})` };
 }
 
 export function intensityWord(v: number): string {
@@ -65,12 +65,12 @@ export function intensityWord(v: number): string {
 }
 
 export function dayMood(score: number | undefined): { title: string; line: string } {
-  if (score === undefined) return { title: 'Com’è andata?', line: 'Segna sintomi e pasti: si salva tutto da solo.' };
-  if (score === 0) return { title: 'Nessun sintomo', line: 'Una giornata serena.' };
-  if (score < 2) return { title: 'Giornata tranquilla', line: 'Solo qualche lieve fastidio.' };
-  if (score < 4) return { title: 'Qualche fastidio', line: 'Sintomi presenti ma gestibili.' };
-  if (score < 6) return { title: 'Giornata pesante', line: 'Sintomi moderati.' };
-  return { title: 'Giornata difficile', line: 'Sintomi forti. Annota cosa hai mangiato: servirà.' };
+  if (score === undefined) return { title: 'Com’è andata?', line: 'Segna sintomi e pasti. Si salva da solo.' };
+  if (score === 0) return { title: 'Pancia zen', line: 'Nessun sintomo. Goditela.' };
+  if (score < 2) return { title: 'Tutto ok', line: 'Qualche fastidio, niente di che.' };
+  if (score < 4) return { title: 'Brontolii', line: 'Sintomi presenti ma gestibili.' };
+  if (score < 6) return { title: 'Pancia nervosa', line: 'Sintomi moderati. Tieni traccia di tutto.' };
+  return { title: 'Pancia in rivolta', line: 'Sintomi forti. Annota cosa hai mangiato: servirà.' };
 }
 
 /* ---------------------------------------------------------------
@@ -92,7 +92,7 @@ export function Evidence({ confidence }: { confidence: Confidence }) {
           <i key={i} className={i <= e.level ? 'on' : ''} />
         ))}
       </span>
-      Evidenza {e.label.toLowerCase()}
+      Evidenza {e.label}
     </span>
   );
 }
@@ -106,11 +106,13 @@ export function num(v: number): string {
   return v.toLocaleString('it-IT', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 }
 
-export function SectionLabel({ title, aside }: { title: string; aside?: ReactNode }) {
+/** Intestazione di sezione numerata: "01  SINTOMI". */
+export function Sec({ n, title, aside }: { n: number; title: string; aside?: ReactNode }) {
   return (
-    <div className="section-label">
+    <div className="sec">
+      <span className="n">{String(n).padStart(2, '0')}</span>
       <h2>{title}</h2>
-      {aside && <span className="aside">{aside}</span>}
+      {aside !== undefined && <span className="aside">{aside}</span>}
     </div>
   );
 }

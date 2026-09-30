@@ -5,7 +5,7 @@ import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { generateDemo } from '../demo';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
-import { Icon, SectionLabel } from '../ui';
+import { Icon, Sec } from '../ui';
 
 function download(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -104,18 +104,20 @@ export function SettingsView() {
 
   return (
     <>
-      <header className="page-head">
-        <span className="eyebrow">Impostazioni</span>
-        <h1 className="display">Il tuo diario</h1>
-        <p>Tutto resta su questo dispositivo: niente account, niente server.</p>
+      <header className="page-title">
+        <span className="mono">Dati solo su questo dispositivo</span>
+        <h1 className="xp">Setup</h1>
+        <p>Niente account, niente server. Il backup lo tieni tu.</p>
       </header>
 
-      <SectionLabel title="Dati" />
+      <Sec n={1} title="Dati" />
       <section className="sheet flush">
         <ul className="list">
           <li>
             <button className="list-action" onClick={exportJson}>
-              <Icon name="download" />
+              <span className="ico">
+                <Icon name="download" />
+              </span>
               <span>
                 Esporta backup
                 <span className="hint">File JSON da conservare o da importare su un altro dispositivo</span>
@@ -124,7 +126,9 @@ export function SettingsView() {
           </li>
           <li>
             <button className="list-action" onClick={() => fileRef.current?.click()}>
-              <Icon name="upload" />
+              <span className="ico">
+                <Icon name="upload" />
+              </span>
               <span>
                 Importa backup
                 <span className="hint">Unisce i dati: per ogni giorno vince la versione più recente</span>
@@ -144,7 +148,9 @@ export function SettingsView() {
           </li>
           <li>
             <button className="list-action" onClick={exportCsv}>
-              <Icon name="table" />
+              <span className="ico">
+                <Icon name="table" />
+              </span>
               <span>
                 Esporta per Excel
                 <span className="hint">CSV da portare al medico o analizzare a modo tuo</span>
@@ -153,7 +159,9 @@ export function SettingsView() {
           </li>
           <li>
             <button className="list-action" onClick={loadDemo}>
-              <Icon name="sparkle" />
+              <span className="ico">
+                <Icon name="sparkle" />
+              </span>
               <span>
                 Carica dati di esempio
                 <span className="hint">120 giorni finti per vedere come funziona l’analisi</span>
@@ -162,7 +170,9 @@ export function SettingsView() {
           </li>
           <li>
             <button className="list-action danger" onClick={wipe}>
-              <Icon name="trash" style={{ color: 'inherit' }} />
+              <span className="ico">
+                <Icon name="trash" />
+              </span>
               <span>Cancella tutti i dati</span>
             </button>
           </li>
@@ -174,7 +184,7 @@ export function SettingsView() {
         </p>
       )}
 
-      <SectionLabel title="Sintomi" aside="attiva quelli da monitorare" />
+      <Sec n={2} title="Sintomi" aside="cosa monitorare" />
       <section className="sheet flush">
         <ul className="list">
           {symptoms.map((s) => (
@@ -211,7 +221,7 @@ export function SettingsView() {
         </ul>
       </section>
 
-      <SectionLabel title="Alimenti" aside={`${foods.filter((f) => !f.archived).length} attivi`} />
+      <Sec n={3} title="Alimenti" aside={`${foods.filter((f) => !f.archived).length} attivi`} />
       <section className="sheet">
         <form
           style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
@@ -263,12 +273,9 @@ export function SettingsView() {
         </ul>
       </section>
 
-      <footer className="brand">
-        <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" />
-        <span>
-          <strong>Gutty</strong>
-          Diario del colon irritabile · non sostituisce il parere medico
-        </span>
+      <footer className="colophon">
+        <span>Gutty · diario ibs</span>
+        <span>Non sostituisce il medico</span>
       </footer>
     </>
   );
