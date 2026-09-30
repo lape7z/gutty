@@ -78,24 +78,28 @@ export function dayMood(score: number | undefined): { title: string; line: strin
 }
 
 /* ---------------------------------------------------------------
-   Mascotte: un mochi color albicocca il cui viso segue la giornata
+   Mascotte: un mochi color albicocca con occhi grandi; l'espressione segue la giornata
    --------------------------------------------------------------- */
-const MOUTH: Record<Face, string> = {
-  hello: 'M49 71q11 10 22 0',
-  zen: 'M50 71q10 8 20 0',
-  happy: 'M47 70q13 13 26 0',
-  ok: 'M52 73q8 5 16 0',
-  meh: 'M52 75h16',
-  sad: 'M51 78q9 -7 18 0',
-  awful: 'M49 80q11 -10 22 0',
-};
+/** Occhi grandi con pupilla: `look` sposta lo sguardo (es. di lato quando c'è disagio). */
+function Eyes({ ink, look = 0 }: { ink: string; look?: number }) {
+  return (
+    <>
+      {[44, 76].map((cx) => (
+        <g key={cx}>
+          <ellipse cx={cx} cy={58} rx={9} ry={10} fill="#fff" stroke={ink} strokeWidth={2.2} />
+          <circle cx={cx + 1 + look} cy={60} r={4.6} fill={ink} />
+          <circle cx={cx + 2.6 + look} cy={58} r={1.6} fill="#fff" />
+        </g>
+      ))}
+    </>
+  );
+}
 
 export function Mascot({ face, size = 112, still = false }: { face: Face; size?: number; still?: boolean }) {
   const id = useId();
-  const closed = face === 'zen';
-  const squeezed = face === 'awful';
-  const blush = face === 'hello' || face === 'zen' || face === 'happy';
   const ink = '#3b2a2a';
+  const blush = face === 'hello' || face === 'zen' || face === 'happy';
+  const line = { fill: 'none', stroke: ink, strokeWidth: 3.6, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
   return (
     <svg className={still ? undefined : 'mascot'} width={size} height={size} viewBox="0 0 120 120" aria-hidden>
       <defs>
@@ -109,47 +113,54 @@ export function Mascot({ face, size = 112, still = false }: { face: Face; size?:
       {/* Corpo a "mochi": morbido sopra, base piatta, con un ciuffetto. */}
       <path d="M12 84C12 46 32 20 60 20s48 26 48 64c0 12-8 18-20 18H32c-12 0-20-6-20-18z" fill={`url(#${id}-g)`} />
       <path d="M58 21c-1-7 4-11 10-9" fill="none" stroke="#e98457" strokeWidth="3.5" strokeLinecap="round" />
-      <ellipse cx="38" cy="42" rx="11" ry="6" fill="#fff" opacity="0.55" transform="rotate(-28 38 42)" />
+      <ellipse cx="34" cy="38" rx="9" ry="5" fill="#fff" opacity="0.55" transform="rotate(-28 34 38)" />
       <g transform="translate(0 6)">
         {blush && (
           <>
-            <ellipse cx="34" cy="71" rx="7" ry="4.5" fill="#ff8a8a" opacity="0.45" />
-            <ellipse cx="86" cy="71" rx="7" ry="4.5" fill="#ff8a8a" opacity="0.45" />
+            <ellipse cx="30" cy="74" rx="7" ry="4.5" fill="#ff8a8a" opacity="0.45" />
+            <ellipse cx="90" cy="74" rx="7" ry="4.5" fill="#ff8a8a" opacity="0.45" />
           </>
         )}
-        <g fill="none" stroke={ink} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-          {closed && (
-            <>
-              <path d="M40 60q6 -6 12 0" />
-              <path d="M68 60q6 -6 12 0" />
-            </>
-          )}
-          {squeezed && (
-            <>
-              <path d="M40 55l10 5-10 5" />
-              <path d="M80 55l-10 5 10 5" />
-            </>
-          )}
-          <path d={MOUTH[face]} />
-          {face === 'sad' && (
-            <>
-              <path d="M39 50l9 3" strokeWidth="3" />
-              <path d="M81 50l-9 3" strokeWidth="3" />
-            </>
-          )}
-        </g>
-        {!closed && !squeezed && (
+
+        {/* Occhi */}
+        {face === 'zen' && (
           <>
-            <g fill={ink}>
-              <ellipse cx="46" cy="60" rx="4.6" ry="5.6" />
-              <ellipse cx="74" cy="60" rx="4.6" ry="5.6" />
-            </g>
-            <g fill="#fff">
-              <circle cx="47.6" cy="58" r="1.6" />
-              <circle cx="75.6" cy="58" r="1.6" />
-            </g>
+            <path d="M36 58q8 7 16 0" {...line} />
+            <path d="M68 58q8 7 16 0" {...line} />
           </>
         )}
+        {face === 'awful' && (
+          <>
+            <path d="M37 52l12 6-12 6" {...line} />
+            <path d="M83 52l-12 6 12 6" {...line} />
+          </>
+        )}
+        {face !== 'zen' && face !== 'awful' && <Eyes ink={ink} look={face === 'meh' ? 2.5 : face === 'sad' ? -1 : 0} />}
+
+        {/* Sopracciglia per le giornate storte */}
+        {face === 'sad' && (
+          <>
+            <path d="M35 44l12 -4" {...line} strokeWidth={3} />
+            <path d="M85 44l-12 -4" {...line} strokeWidth={3} />
+          </>
+        )}
+
+        {/* Bocca */}
+        {(face === 'hello' || face === 'happy') && (
+          <>
+            <path d={face === 'happy' ? 'M49 73q11 14 22 0z' : 'M51 74q9 11 18 0z'} fill={ink} stroke={ink} strokeWidth={2.5} strokeLinejoin="round" />
+            <ellipse cx="60" cy={face === 'happy' ? 81 : 80} rx="5" ry="2.6" fill="#ff7f8e" />
+          </>
+        )}
+        {face === 'zen' && <path d="M55 75q5 4 10 0" {...line} />}
+        {face === 'ok' && <path d="M55 76q5 3.5 10 0" {...line} />}
+        {face === 'meh' && <path d="M54 78h12" {...line} />}
+        {face === 'sad' && <path d="M53 81q7 -6 14 0" {...line} />}
+        {face === 'awful' && <path d="M48 79q3 -3 6 0t6 0 6 0 6 0" {...line} />}
+
+        {/* Lacrima e goccia di sudore */}
+        {face === 'sad' && <path d="M36 70q-3 5 0 7q3 -2 0 -7z" fill="#7cc0f5" />}
+        {face === 'awful' && <path d="M92 36q-4 6 0 9q4 -3 0 -9z" fill="#7cc0f5" />}
       </g>
     </svg>
   );
