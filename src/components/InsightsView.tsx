@@ -5,9 +5,10 @@ import { useActiveSymptoms, useDays, useFactorNames } from '../hooks';
 import { EVIDENCE, Evidence, Sec, num, signed } from '../ui';
 import { EffectChart } from './EffectChart';
 
-type LagKey = '0' | '1' | '01' | '2';
+type LagKey = '24h' | '0' | '1' | '01' | '2';
 
 const LAGS: { key: LagKey; label: string; lag: LagWindow }[] = [
+  { key: '24h', label: 'Nelle 24 ore dopo', lag: { from: 0, to: 0, timed: true } },
   { key: '01', label: 'Entro un giorno', lag: { from: 0, to: 1 } },
   { key: '0', label: 'Stesso giorno', lag: { from: 0, to: 0 } },
   { key: '1', label: 'Giorno dopo', lag: { from: 1, to: 1 } },
@@ -20,14 +21,25 @@ const RELIABLE_DAYS = 28;
 function exposure(id: string, name: string, lag: LagKey): string {
   if (id === 'stress-alto') {
     return {
+      '24h': 'Dopo una giornata di stress alto',
       '0': 'Nei giorni di stress alto',
       '1': 'Il giorno dopo una giornata stressante',
       '01': 'Quando c’è stato stress alto quel giorno o il precedente',
       '2': 'Due giorni dopo una giornata stressante',
     }[lag];
   }
+  if (id === 'cena-pesante') {
+    return {
+      '24h': 'Dopo una cena abbondante o tardiva',
+      '0': 'Nei giorni con una cena abbondante o tardiva',
+      '1': 'Il giorno dopo una cena abbondante o tardiva',
+      '01': 'Quando c’è stata una cena abbondante o tardiva quel giorno o il precedente',
+      '2': 'Due giorni dopo una cena abbondante o tardiva',
+    }[lag];
+  }
   if (id === 'sonno-scarso') {
     return {
+      '24h': 'Nei giorni in cui hai dormito male',
       '0': 'Quando hai dormito male',
       '1': 'Il giorno dopo aver dormito male',
       '01': 'Quando hai dormito male quel giorno o il precedente',
@@ -36,6 +48,7 @@ function exposure(id: string, name: string, lag: LagKey): string {
   }
   const n = name.toLowerCase();
   return {
+    '24h': `Nelle 24 ore dopo aver consumato ${n}`,
     '0': `Nei giorni in cui consumi ${n}`,
     '1': `Il giorno dopo aver consumato ${n}`,
     '01': `Quando hai consumato ${n} il giorno stesso o quello prima`,
@@ -48,7 +61,7 @@ export function InsightsView() {
   const symptoms = useActiveSymptoms();
   const nameOf = useFactorNames();
   const [targetKey, setTargetKey] = useState('overall');
-  const [lagKey, setLagKey] = useState<LagKey>('01');
+  const [lagKey, setLagKey] = useState<LagKey>('24h');
   const [showWeak, setShowWeak] = useState(false);
   const [showAllFactors, setShowAllFactors] = useState(false);
 

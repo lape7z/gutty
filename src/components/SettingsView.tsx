@@ -4,7 +4,9 @@ import { todayISO } from '../date';
 import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { generateDemo } from '../demo';
+import { LEVELS, MEALS, MOMENT_INFO, mealsOf } from '../day';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
+import type { DayEntry, Moment } from '../types';
 import { Icon, Mascot, Sec } from '../ui';
 
 // Nella versione anteprima (pagina pubblicata) il browser blocca i download: copiamo negli appunti.
@@ -64,19 +66,41 @@ export function SettingsView() {
   const exportCsv = async () => {
     const { days } = await exportBackup();
     const active = symptoms.filter((s) => !s.archived);
-    const header = ['data', ...active.map((s) => s.name), 'media sintomi', 'bristol', 'stress', 'sonno', 'alimenti', 'note'];
+    const moment = (d: DayEntry, m: Moment) => {
+      const log = d.moments?.[m];
+      if (!log) return '';
+      const names = log.symptoms.map((id) => symptoms.find((s) => s.id === id)?.name ?? id);
+      return `${LEVELS[log.level].label}${names.length ? ` (${names.join(', ')})` : ''}`;
+    };
+    const header = [
+      'data',
+      ...MOMENT_INFO.map((m) => m.label),
+      ...active.map((s) => `${s.name} (0-10)`),
+      'media sintomi',
+      'bristol',
+      'stress',
+      'sonno',
+      ...MEALS.map((m) => m.label),
+      'cena abbondante o tardiva',
+      'note',
+    ];
     const rows = days
       .sort((a, b) => a.date.localeCompare(b.date))
-      .map((d) => [
-        d.date,
-        ...active.map((s) => d.symptoms[s.id] ?? 0),
-        dayScore(d, active.map((s) => s.id), { kind: 'overall' })?.toFixed(2).replace('.', ','),
-        d.bristol,
-        d.stress,
-        d.sleep,
-        d.foods.map(nameOf).join(', '),
-        d.notes,
-      ]);
+      .map((d) => {
+        const meals = mealsOf(d);
+        return [
+          d.date,
+          ...MOMENT_INFO.map((m) => moment(d, m.id)),
+          ...active.map((s) => d.symptoms[s.id] ?? ''),
+          dayScore(d, active.map((s) => s.id), { kind: 'overall' })?.toFixed(2).replace('.', ','),
+          d.bristol,
+          d.stress,
+          d.sleep,
+          ...MEALS.map((m) => meals[m.id].map(nameOf).join(', ')),
+          d.bigDinner ? 'sì' : '',
+          d.notes,
+        ];
+      });
     const csv = [header, ...rows].map((r) => r.map(csvCell).join(';')).join('\n');
     // Il BOM serve a Excel per leggere gli accenti; negli appunti non serve.
     await deliver(`gutty-diario-${todayISO()}.csv`, CAN_DOWNLOAD ? '\uFEFF' + csv : csv, 'text/csv;charset=utf-8', 'Diario in formato CSV');

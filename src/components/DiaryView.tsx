@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { addDays, formatLong, todayISO } from '../date';
 import { formatScore, overallScore, useActiveSymptoms, useDays, useFactorNames } from '../hooks';
+import { LEVELS, MOMENT_INFO } from '../day';
 import { Icon, Sec, heatStyle } from '../ui';
 import { TrendChart, type TrendPoint } from './TrendChart';
 
@@ -170,7 +171,10 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
           <ul className="entries">
             {(showAll ? monthEntries : monthEntries.slice(0, 7)).map((d) => {
               const s = scoreOf.get(d.date);
-              const meta = [d.bristol && `Bristol ${d.bristol}`, d.stress && `stress ${d.stress}/5`, d.sleep && `sonno ${d.sleep}/5`]
+              const moments = MOMENT_INFO.filter((m) => d.moments?.[m.id])
+                .map((m) => `${m.label} ${LEVELS[d.moments![m.id]!.level].label.toLowerCase()}`)
+                .join(' · ');
+              const meta = [d.bristol && `Bristol ${d.bristol}`, d.stress && `stress ${d.stress}/5`, d.sleep && `sonno ${d.sleep}/5`, d.bigDinner && 'cena pesante']
                 .filter(Boolean)
                 .join(' · ');
               return (
@@ -181,6 +185,7 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
                     </span>
                     <span>
                       <span className="title">{formatLong(d.date)}</span>
+                      {moments && <span className="meta moments">{moments}</span>}
                       {meta && <span className="meta">{meta}</span>}
                       <span className="foods">{d.foods.length ? d.foods.map(nameOf).join(', ') : 'Nessun alimento segnato'}</span>
                       {d.notes && <span className="notes">{d.notes}</span>}

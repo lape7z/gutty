@@ -1,5 +1,5 @@
 import { addDays } from './date';
-import type { DayEntry } from './types';
+import type { DayEntry, Moment } from './types';
 
 /** Cosa misurare: la media di tutti i sintomi o un singolo sintomo. */
 export type Target = { kind: 'overall' } | { kind: 'symptom'; id: string };
@@ -7,10 +7,13 @@ export type Target = { kind: 'overall' } | { kind: 'symptom'; id: string };
 /**
  * Finestra di esposizione, in giorni prima del giorno dei sintomi.
  * {0,0} = stesso giorno, {1,1} = giorno dopo, {0,1} = stesso giorno o giorno prima.
+ * `timed`: i cibi di un giorno contro i sintomi delle 24 ore successive
+ * (pomeriggio e sera/notte dello stesso giorno, mattina del giorno dopo).
  */
 export interface LagWindow {
   from: number;
   to: number;
+  timed?: boolean;
 }
 
 export interface AnalysisOptions {
@@ -55,19 +58,71 @@ export interface AnalysisResult {
   insufficient: { id: string; nExposed: number }[];
 }
 
-export function dayScore(entry: DayEntry, symptomIds: string[], target: Target): number | undefined {
+export const MOMENTS: Moment[] = ['mattina', 'pomeriggio', 'sera'];
+
+/** Un livello rapido (0-4) portato sulla stessa scala 0-10 degli slider. */
+export const LEVEL_TO_SCORE = 2.5;
+
+export function hasMoments(entry: DayEntry | undefined): boolean {
+  return !!entry?.moments && MOMENTS.some((m) => entry.moments![m] !== undefined);
+}
+
+/** Punteggio 0-10 di un momento; per un singolo sintomo conta solo se era presente. */
+export function momentScore(entry: DayEntry | undefined, moment: Moment, target: Target): number | undefined {
+  const m = entry?.moments?.[moment];
+  if (!m) return undefined;
+  const score = m.level * LEVEL_TO_SCORE;
+  if (target.kind === 'overall') return score;
+  return m.symptoms.includes(target.id) ? score : 0;
+}
+
+/** Punteggio 0-10 dei soli dettagli (slider); undefined se non ci sono. */
+function detailScore(entry: DayEntry, symptomIds: string[], target: Target): number | undefined {
+  if (Object.keys(entry.symptoms).length === 0) return undefined;
   if (target.kind === 'symptom') return entry.symptoms[target.id] ?? 0;
   if (symptomIds.length === 0) return undefined;
   const sum = symptomIds.reduce((acc, id) => acc + (entry.symptoms[id] ?? 0), 0);
   return sum / symptomIds.length;
 }
 
-/** Alimenti della giornata più i fattori di stile di vita derivati da stress e sonno. */
+/**
+ * Punteggio 0-10 della giornata. I momenti registrati hanno la precedenza; per un singolo sintomo
+ * vince il dettaglio dello slider, se c'è. Undefined se la giornata non ha sintomi registrati:
+ * un momento lasciato vuoto non vale "zero".
+ */
+export function dayScore(entry: DayEntry, symptomIds: string[], target: Target): number | undefined {
+  if (target.kind === 'symptom' && entry.symptoms[target.id] !== undefined) return entry.symptoms[target.id];
+  if (hasMoments(entry)) {
+    const scores = MOMENTS.map((m) => momentScore(entry, m, target)).filter((v): v is number => v !== undefined);
+    return scores.reduce((a, b) => a + b, 0) / scores.length;
+  }
+  return detailScore(entry, symptomIds, target);
+}
+
+/** Alimenti della giornata più i fattori di stile di vita (stress, sonno, cena pesante). */
 export function factorsOf(entry: DayEntry): string[] {
   const out = [...entry.foods];
   if (entry.stress !== undefined && entry.stress >= 4) out.push('stress-alto');
   if (entry.sleep !== undefined && entry.sleep <= 2) out.push('sonno-scarso');
+  if (entry.bigDinner) out.push('cena-pesante');
   return out;
+}
+
+/**
+ * Sintomi nelle 24 ore dopo i pasti del giorno: pomeriggio e sera/notte dello stesso giorno,
+ * mattina del giorno dopo. Per i diari senza momenti usa la media delle due giornate.
+ */
+function followUpScore(day: DayEntry, next: DayEntry | undefined, opts: AnalysisOptions): number | undefined {
+  if (hasMoments(day) || hasMoments(next)) {
+    const scores = [momentScore(day, 'pomeriggio', opts.target), momentScore(day, 'sera', opts.target), momentScore(next, 'mattina', opts.target)].filter(
+      (v): v is number => v !== undefined,
+    );
+    return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : undefined;
+  }
+  const scores = [day, next]
+    .map((e) => (e ? dayScore(e, opts.symptomIds, opts.target) : undefined))
+    .filter((v): v is number => v !== undefined);
+  return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : undefined;
 }
 
 interface Observation {
@@ -78,6 +133,14 @@ interface Observation {
 export function buildObservations(entries: DayEntry[], opts: AnalysisOptions): Observation[] {
   const byDate = new Map(entries.map((e) => [e.date, e]));
   const obs: Observation[] = [];
+  if (opts.lag.timed) {
+    // Una osservazione per giorno: i cibi del giorno contro le 24 ore successive.
+    for (const day of entries) {
+      const y = followUpScore(day, byDate.get(addDays(day.date, 1)), opts);
+      if (y !== undefined) obs.push({ y, factors: new Set(factorsOf(day)) });
+    }
+    return obs;
+  }
   for (const outcome of entries) {
     const y = dayScore(outcome, opts.symptomIds, opts.target);
     if (y === undefined) continue;

@@ -2,9 +2,10 @@
 
 App web (installabile sul telefono come PWA) per tenere traccia giorno per giorno di:
 
-- **intensità dei sintomi** (dolore, gonfiore, aria, urgenza… personalizzabili), da 0 a 10
+- **come va la pancia in tre momenti** (mattina, pomeriggio, sera e notte), con un tocco ciascuno e, se vuoi, quali sintomi
+- **intensità dei singoli sintomi** da 0 a 10, come dettaglio facoltativo
 - **scala di Bristol** per le feci
-- **alimenti e bevande** assunti (catalogo iniziale orientato ai trigger FODMAP, estendibile)
+- **alimenti e bevande** divisi per pasto: colazione, pranzo, cena, fuori pasto (catalogo iniziale orientato ai trigger FODMAP, estendibile), più "cena abbondante o tardiva"
 - **stress, qualità del sonno** e note libere
 
 …e poi **cercare correlazioni** tra ciò che mangi e come stai.
@@ -17,8 +18,10 @@ Da *Impostazioni* puoi esportare un backup JSON (per spostare i dati o conservar
 ## Come funziona l'analisi
 
 Per ogni alimento (o fattore come “stress alto” e “dormito male”) l'app confronta il punteggio dei sintomi
-nei giorni **con** e **senza** quel fattore, in una finestra temporale a scelta:
-stesso giorno, giorno dopo, stesso giorno o giorno dopo, due giorni dopo (molti trigger del colon irritabile agiscono con 6–24 ore di ritardo).
+nei giorni **con** e **senza** quel fattore, in una finestra temporale a scelta. Quella predefinita, **nelle 24 ore dopo**, confronta i cibi di un giorno con i sintomi
+di quel pomeriggio, di quella sera e notte e della mattina dopo: così la cena conta per la notte e il risveglio, non per la mattina
+dello stesso giorno. Ci sono anche le finestre a giorni interi (stesso giorno, giorno dopo, entro un giorno, due giorni dopo).
+Molti trigger del colon irritabile agiscono con 6–24 ore di ritardo.
 
 - **Diff.** – differenza del punteggio medio (0–10) tra giorni con e senza.
 - **Netto** – effetto stimato *a parità degli altri alimenti* (regressione ridge), utile quando due cibi vanno spesso insieme.
@@ -37,6 +40,7 @@ npm install
 npm run dev       # server di sviluppo su http://localhost:5173
 npm test          # test del motore di analisi
 npm run build     # build di produzione in dist/
+npm run build:single  # un unico file HTML autosufficiente in dist-single/ (anteprima, senza service worker)
 ```
 
 Stack: React + TypeScript + Vite, Dexie (IndexedDB), vite-plugin-pwa. Font Plus Jakarta Sans incluso nel bundle (funziona offline).

@@ -64,7 +64,7 @@ export function intensityWord(v: number): string {
   return 'forte';
 }
 
-export type Face = 'hello' | 'zen' | 'happy' | 'ok' | 'meh' | 'sad';
+export type Face = 'hello' | 'zen' | 'happy' | 'ok' | 'meh' | 'sad' | 'awful';
 
 export function dayMood(score: number | undefined): { title: string; line: string; face: Face } {
   if (score === undefined) return { title: 'Come stai oggi?', line: 'Annota sintomi e pasti: bastano pochi tocchi.', face: 'hello' };
@@ -85,11 +85,13 @@ const MOUTH: Record<Face, string> = {
   ok: 'M52 73q8 5 16 0',
   meh: 'M52 75h16',
   sad: 'M51 78q9 -7 18 0',
+  awful: 'M49 80q11 -10 22 0',
 };
 
 export function Mascot({ face, size = 112, still = false }: { face: Face; size?: number; still?: boolean }) {
   const id = useId();
   const closed = face === 'zen';
+  const squeezed = face === 'awful';
   const blush = face === 'hello' || face === 'zen' || face === 'happy';
   return (
     <svg className={still ? undefined : 'mascot'} width={size} height={size} viewBox="0 0 120 120" aria-hidden>
@@ -116,6 +118,12 @@ export function Mascot({ face, size = 112, still = false }: { face: Face; size?:
             <path d="M68 60q6 -6 12 0" />
           </>
         ) : null}
+        {squeezed ? (
+          <>
+            <path d="M40 55l10 5-10 5" />
+            <path d="M80 55l-10 5 10 5" />
+          </>
+        ) : null}
         <path d={MOUTH[face]} />
         {face === 'sad' && (
           <>
@@ -124,7 +132,7 @@ export function Mascot({ face, size = 112, still = false }: { face: Face; size?:
           </>
         )}
       </g>
-      {!closed && (
+      {!closed && !squeezed && (
         <g fill="#2a2350">
           <ellipse cx="46" cy="60" rx="4.2" ry="5.2" />
           <ellipse cx="74" cy="60" rx="4.2" ry="5.2" />

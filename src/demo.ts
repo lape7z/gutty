@@ -1,48 +1,103 @@
 import { mulberry32 } from './analysis';
 import { addDays, todayISO } from './date';
 import { DEFAULT_FOODS, DEFAULT_SYMPTOMS } from './defaults';
-import type { DayEntry } from './types';
+import type { DayEntry, Meal, MomentLog } from './types';
 
 const COMMON = new Set(['caffe', 'pasta-di-grano', 'pane', 'riso', 'formaggi-stagionati']);
+const BREAKFAST = new Set(['caffe', 'latte', 'yogurt', 'pane', 'te', 'succhi-di-frutta', 'dolci', 'mela']);
+const MEALS: Meal[] = ['colazione', 'pranzo', 'cena', 'fuoripasto'];
 
 /**
  * Genera un diario finto con trigger nascosti, per provare l'analisi:
- * - cipolla → sintomi forti il GIORNO DOPO
- * - latte → gonfiore e aria lo STESSO GIORNO
- * - stress alto → più dolore lo stesso giorno
+ * - cipolla → dolore e urgenza nelle ore successive (a cena: la notte e la mattina dopo)
+ * - latte → gonfiore e aria nel pomeriggio
+ * - stress alto → dolore la sera
+ * - cena abbondante o tardiva → gonfiore la sera e la notte
  */
 export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[] {
   const rand = mulberry32(seed);
   const start = addDays(end, -(days - 1));
-  const noise = () => (rand() - 0.5) * 2;
-  const clamp = (v: number) => Math.max(0, Math.min(10, Math.round(v)));
+  const pick = <T,>(arr: T[]) => arr[Math.floor(rand() * arr.length)];
 
   const raw = Array.from({ length: days }, (_, i) => {
     const date = addDays(start, i);
-    const foods = DEFAULT_FOODS.filter((f) => rand() < (COMMON.has(f.id) ? 0.6 : 0.12)).map((f) => f.id);
-    const stress = 1 + Math.floor(rand() * 5);
-    const sleep = 1 + Math.floor(rand() * 5);
-    return { date, foods, stress, sleep };
+    const meals: Record<Meal, string[]> = { colazione: [], pranzo: [], cena: [], fuoripasto: [] };
+    for (const f of DEFAULT_FOODS) {
+      if (rand() >= (COMMON.has(f.id) ? 0.6 : 0.12)) continue;
+      const meal = BREAKFAST.has(f.id) && rand() < 0.6 ? 'colazione' : pick(MEALS.slice(1));
+      meals[meal].push(f.id);
+    }
+    return {
+      date,
+      meals,
+      stress: 1 + Math.floor(rand() * 5),
+      sleep: 1 + Math.floor(rand() * 5),
+      bigDinner: rand() < 0.2,
+    };
   });
 
-  return raw.map((day, i) => {
-    const yesterday = raw[i - 1];
-    const onionYesterday = yesterday?.foods.includes('cipolla') ? 1 : 0;
-    const milkToday = day.foods.includes('latte') ? 1 : 0;
-    const stressHigh = day.stress >= 4 ? 1 : 0;
+  const moment = (level: number, symptoms: Set<string>): MomentLog => {
+    const lv = Math.max(0, Math.min(4, Math.round(level)));
+    return { level: lv, symptoms: lv === 0 ? [] : [...symptoms] };
+  };
 
-    const base = 1.5;
-    const symptoms: Record<string, number> = {
-      dolore: clamp(base + 3.5 * onionYesterday + 2 * stressHigh + noise()),
-      gonfiore: clamp(base + 3 * onionYesterday + 3.5 * milkToday + noise()),
-      gas: clamp(base + 2.5 * onionYesterday + 3 * milkToday + noise()),
-      urgenza: clamp(base + 2 * onionYesterday + noise()),
-    };
-    const worst = Math.max(...Object.values(symptoms));
+  return raw.map((day, i) => {
+    const prev = raw[i - 1];
+    const noise = () => rand() * 1.2 - 0.3;
+    const onionAt = (d: typeof day | undefined, m: Meal) => (d?.meals[m].includes('cipolla') ? 1 : 0);
+    const milkEarly = day.meals.colazione.includes('latte') || day.meals.pranzo.includes('latte') ? 1 : 0;
+
+    const mattina = new Set<string>();
+    const pomeriggio = new Set<string>();
+    const sera = new Set<string>();
+
+    let mLevel = noise();
+    if (onionAt(prev, 'cena')) {
+      mLevel += 2.4;
+      mattina.add('dolore').add('urgenza');
+    }
+
+    let pLevel = noise();
+    if (milkEarly) {
+      pLevel += 2.4;
+      pomeriggio.add('gonfiore').add('gas');
+    }
+    if (onionAt(day, 'colazione') || onionAt(day, 'pranzo')) {
+      pLevel += 2;
+      pomeriggio.add('dolore');
+    }
+
+    let sLevel = noise();
+    if (onionAt(day, 'cena') || onionAt(day, 'fuoripasto')) {
+      sLevel += 1.5;
+      sera.add('dolore').add('urgenza');
+    }
+    if (day.stress >= 4) {
+      sLevel += 1.3;
+      sera.add('dolore');
+    }
+    if (day.bigDinner) {
+      sLevel += 1.3;
+      sera.add('gonfiore');
+    }
+
+    for (const s of [mattina, pomeriggio, sera]) if (s.size === 0) s.add(pick(DEFAULT_SYMPTOMS).id);
+
+    const foods = [...new Set(MEALS.flatMap((m) => day.meals[m]))];
     return {
-      ...day,
-      symptoms: Object.fromEntries(DEFAULT_SYMPTOMS.map((s) => [s.id, symptoms[s.id] ?? 0])),
-      bristol: worst >= 6 ? 6 : 4,
+      date: day.date,
+      foods,
+      meals: day.meals,
+      stress: day.stress,
+      sleep: day.sleep,
+      bigDinner: day.bigDinner || undefined,
+      symptoms: {},
+      moments: {
+        mattina: moment(mLevel, mattina),
+        pomeriggio: moment(pLevel, pomeriggio),
+        sera: moment(sLevel, sera),
+      },
+      bristol: Math.max(mLevel, pLevel) >= 2.5 ? 6 : 4,
       updatedAt: Date.now(),
     };
   });

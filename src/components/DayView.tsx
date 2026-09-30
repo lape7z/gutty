@@ -4,7 +4,8 @@ import { addDays, todayISO } from '../date';
 import { db, emptyDay, saveDay } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { formatScore, overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
-import type { DayEntry, Food } from '../types';
+import { LEVELS, MEALS, MOMENT_INFO, mealNow, mealsOf, momentNow, withMeals } from '../day';
+import type { DayEntry, Food, Meal, Moment, MomentLog } from '../types';
 import { Icon, Mascot, Sec, dayMood, heatLevel, intensityWord, type Face } from '../ui';
 
 const BRISTOL = ['Grumi duri separati', 'Salsiccia grumosa', 'Salsiccia screpolata', 'Liscia e morbida', 'Pezzi morbidi', 'Poltiglia', 'Liquida'];
@@ -39,6 +40,8 @@ export function DayView({ date, onDateChange }: Props) {
   const allDays = useDaysOrEmpty();
   const loaded = useLiveQuery(async () => ({ date, entry: await db.days.get(date) }), [date]);
   const [draft, setDraft] = useState<DayEntry | null>(null);
+  const [meal, setMeal] = useState<Meal>(() => mealNow());
+  const [skipNight, setSkipNight] = useState(false);
 
   // Il draft si inizializza dal database solo quando cambia giorno; poi è lui la fonte di verità.
   useEffect(() => {
@@ -65,9 +68,12 @@ export function DayView({ date, onDateChange }: Props) {
     void saveDay(next);
   };
 
+  const meals = mealsOf(draft);
+  const setMealFoods = (m: Meal, list: string[]) => update(withMeals({ ...meals, [m]: list }));
+
   const toggleFood = (id: string) => {
-    const has = draft.foods.includes(id);
-    update({ foods: has ? draft.foods.filter((f) => f !== id) : [...draft.foods, id] });
+    const list = meals[meal];
+    setMealFoods(meal, list.includes(id) ? list.filter((f) => f !== id) : [...list, id]);
   };
 
   const addFood = async (name: string) => {
@@ -81,14 +87,31 @@ export function DayView({ date, onDateChange }: Props) {
     } else {
       await db.foods.add({ id, name: clean, category: 'Altro' });
     }
-    if (!draft.foods.includes(id)) update({ foods: [...draft.foods, id] });
+    if (!meals[meal].includes(id)) setMealFoods(meal, [...meals[meal], id]);
   };
 
-  const touched = draft.updatedAt > 0;
-  const score = touched ? overallScore(draft, symptoms) : undefined;
+  const setMoment = (m: Moment, log: MomentLog | undefined) => {
+    const moments = { ...draft.moments };
+    if (log) moments[m] = log;
+    else delete moments[m];
+    update({ moments });
+  };
+
+  const hasDetails = Object.keys(draft.symptoms).length > 0;
+  const score = overallScore(draft, symptoms);
   const mood = dayMood(score);
   const relative = date === today ? 'Oggi' : date === addDays(today, -1) ? 'Ieri' : null;
   const weekday = fmtWeekday.format(asDate(date));
+  const nowMoment = date === today ? momentNow() : null;
+  const yesterdayMeals = yesterday ? mealsOf(yesterday)[meal] : [];
+  const mealPhrase = MEALS.find((m) => m.id === meal)!.phrase;
+
+  // La mattina chiediamo com'è andata la notte appena passata (che appartiene a ieri).
+  const askNight = date === today && new Date().getHours() < 15 && !yesterday?.moments?.sera && !skipNight;
+  const saveNight = (level: number) => {
+    const base = yesterday ?? emptyDay(addDays(today, -1));
+    void saveDay({ ...base, moments: { ...base.moments, sera: { level, symptoms: [] } }, updatedAt: Date.now() });
+  };
 
   return (
     <>
@@ -108,6 +131,18 @@ export function DayView({ date, onDateChange }: Props) {
 
       <WeekStrip date={date} today={today} scores={scores} onSelect={onDateChange} />
 
+      {askNight && (
+        <section className="night" aria-label="Ieri sera e stanotte">
+          <div className="night-head">
+            <strong>Com’è andata ieri sera e stanotte?</strong>
+            <button className="btn link" onClick={() => setSkipNight(true)}>
+              Salta
+            </button>
+          </div>
+          <LevelPicker label="Ieri sera e stanotte" value={undefined} onChange={(lv) => lv !== undefined && saveNight(lv)} />
+        </section>
+      )}
+
       <section className="mood" aria-live="polite">
         <Mascot face={mood.face} />
         <h2>{mood.title}</h2>
@@ -119,16 +154,19 @@ export function DayView({ date, onDateChange }: Props) {
         )}
       </section>
 
-      <Sec title="Sintomi" aside="da 0 a 10" />
+      <Sec title="Come va la pancia" aside="un tocco per momento" />
       <section className="sheet">
-        {symptoms.map((s) => (
-          <SoftSlider
-            key={s.id}
-            id={s.id}
-            label={s.name}
-            value={draft.symptoms[s.id] ?? 0}
-            onChange={(v) => update({ symptoms: { ...draft.symptoms, [s.id]: v } })}
-          />
+        {MOMENT_INFO.map((info, i) => (
+          <div key={info.id}>
+            {i > 0 && <hr className="divider" />}
+            <MomentRow
+              info={info}
+              log={draft.moments?.[info.id]}
+              isNow={nowMoment === info.id}
+              symptoms={symptoms}
+              onChange={(log) => setMoment(info.id, log)}
+            />
+          </div>
         ))}
         <hr className="divider" />
         <div className="field-label">
@@ -156,19 +194,67 @@ export function DayView({ date, onDateChange }: Props) {
           {draft.bristol ? <strong>{BRISTOL[draft.bristol - 1]}</strong> : <span>facoltativo</span>}
           <span>diarrea</span>
         </div>
+        <details className="disclosure details-more" open={hasDetails || undefined}>
+          <summary>
+            <span>
+              Aggiungi dettagli
+              <span className="summary-hint">intensità di ogni sintomo, da 0 a 10</span>
+            </span>
+          </summary>
+          <div className="body">
+            {symptoms.map((s) => (
+              <SoftSlider
+                key={s.id}
+                id={s.id}
+                label={s.name}
+                value={draft.symptoms[s.id] ?? 0}
+                onChange={(v) => update({ symptoms: { ...draft.symptoms, [s.id]: v } })}
+              />
+            ))}
+            {hasDetails && (
+              <button className="btn link" style={{ marginTop: 12, marginLeft: -4 }} onClick={() => update({ symptoms: {} })}>
+                Togli i dettagli
+              </button>
+            )}
+          </div>
+        </details>
       </section>
 
-      <Sec title="Cosa hai mangiato" aside={draft.foods.length ? `${draft.foods.length} selezionati` : undefined} />
+      <Sec title="Cosa hai mangiato" aside={draft.foods.length ? `${draft.foods.length} in tutto` : undefined} />
       <section className="sheet">
+        <div className="meal-tabs" role="tablist" aria-label="Pasto">
+          {MEALS.map((m) => (
+            <button key={m.id} role="tab" aria-selected={meal === m.id} onClick={() => setMeal(m.id)}>
+              {m.label}
+              {meals[m.id].length > 0 && <span className="count">{meals[m.id].length}</span>}
+            </button>
+          ))}
+        </div>
+        {meal === 'cena' && (
+          <label className="toggle-row">
+            <span>
+              Cena abbondante o tardiva
+              <span className="hint">anche questo può pesare</span>
+            </span>
+            <button
+              className="switch"
+              role="switch"
+              aria-checked={!!draft.bigDinner}
+              aria-label="Cena abbondante o tardiva"
+              onClick={() => update({ bigDinner: draft.bigDinner ? undefined : true })}
+            />
+          </label>
+        )}
         <FoodPicker
           foods={foods}
-          selected={draft.foods}
+          selected={meals[meal]}
+          mealPhrase={mealPhrase}
           frequent={frequent}
           onToggle={toggleFood}
           onAdd={addFood}
           onCopyYesterday={
-            yesterday && yesterday.foods.some((f) => !draft.foods.includes(f))
-              ? () => update({ foods: [...new Set([...draft.foods, ...yesterday.foods])] })
+            yesterdayMeals.some((f) => !meals[meal].includes(f))
+              ? () => setMealFoods(meal, [...new Set([...meals[meal], ...yesterdayMeals])])
               : undefined
           }
         />
@@ -193,7 +279,7 @@ export function DayView({ date, onDateChange }: Props) {
       </section>
 
       <p className="saved">
-        {touched ? (
+        {draft.updatedAt > 0 ? (
           <>
             <Icon name="check" size={16} /> Salvato sul tuo dispositivo
           </>
@@ -202,6 +288,69 @@ export function DayView({ date, onDateChange }: Props) {
         )}
       </p>
     </>
+  );
+}
+
+/** Un momento della giornata: una faccina e, se c'è fastidio, quali sintomi. */
+function MomentRow({
+  info,
+  log,
+  isNow,
+  symptoms,
+  onChange,
+}: {
+  info: (typeof MOMENT_INFO)[number];
+  log: MomentLog | undefined;
+  isNow: boolean;
+  symptoms: { id: string; name: string }[];
+  onChange: (log: MomentLog | undefined) => void;
+}) {
+  return (
+    <div className="moment">
+      <div className="moment-head">
+        <strong>{info.label}</strong>
+        <span className="faint">{info.hint}</span>
+        {isNow && <span className="now">adesso</span>}
+      </div>
+      <LevelPicker
+        label={info.label}
+        value={log?.level}
+        onChange={(level) => onChange(level === undefined ? undefined : { level, symptoms: level === 0 ? [] : (log?.symptoms ?? []) })}
+      />
+      {log && log.level > 0 && (
+        <div className="moment-symptoms">
+          <span className="faint small">Cosa senti?</span>
+          <div className="chips">
+            {symptoms.map((s) => {
+              const on = log.symptoms.includes(s.id);
+              return (
+                <button
+                  key={s.id}
+                  className="chip sm"
+                  aria-pressed={on}
+                  onClick={() => onChange({ ...log, symptoms: on ? log.symptoms.filter((x) => x !== s.id) : [...log.symptoms, s.id] })}
+                >
+                  {s.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LevelPicker({ label, value, onChange }: { label: string; value: number | undefined; onChange: (v: number | undefined) => void }) {
+  return (
+    <div className="faces" role="group" aria-label={label}>
+      {LEVELS.map((l, lv) => (
+        <button key={lv} aria-pressed={value === lv} aria-label={`${label}: ${l.label}`} onClick={() => onChange(value === lv ? undefined : lv)}>
+          <Mascot face={l.face} size={38} still />
+          {l.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -384,6 +533,7 @@ function BristolGlyph({ type }: { type: number }) {
 function FoodPicker({
   foods,
   selected,
+  mealPhrase,
   frequent,
   onToggle,
   onAdd,
@@ -391,6 +541,7 @@ function FoodPicker({
 }: {
   foods: Food[];
   selected: string[];
+  mealPhrase: string;
   frequent: string[];
   onToggle: (id: string) => void;
   onAdd: (name: string) => Promise<void>;
@@ -425,7 +576,7 @@ function FoodPicker({
   return (
     <>
       {selected.length === 0 ? (
-        <p className="plate-empty">Ancora niente. Cerca un alimento o sceglilo qui sotto.</p>
+        <p className="plate-empty">Ancora niente {mealPhrase}. Cerca un alimento o sceglilo qui sotto.</p>
       ) : (
         <div className="chips" aria-label="Nel piatto">
           {selected.map((id) => (
@@ -440,7 +591,7 @@ function FoodPicker({
       )}
       {onCopyYesterday && (
         <button className="btn link" style={{ marginTop: 8, marginLeft: -4 }} onClick={onCopyYesterday}>
-          <Icon name="plus" size={16} /> Aggiungi quello di ieri
+          <Icon name="plus" size={16} /> Come ieri {mealPhrase}
         </button>
       )}
 
