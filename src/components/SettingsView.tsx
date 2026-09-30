@@ -7,7 +7,7 @@ import { generateDemo } from '../demo';
 import { LEVELS, MEALS, MOMENT_INFO, mealsOf } from '../day';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
 import type { DayEntry, Moment } from '../types';
-import { Icon, MoodFace, Sec } from '../ui';
+import { Icon, Mascot, Sec } from '../ui';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from '../install';
 
 // Nella versione anteprima (pagina pubblicata) il browser blocca i download: copiamo negli appunti.
@@ -357,7 +357,7 @@ export function SettingsView() {
       </section>
 
       <footer className="colophon">
-        <MoodFace face="happy" size={36} stroke={2} fill="var(--primary-soft)" color="var(--primary-ink)" />
+        <Mascot face="happy" size={48} still />
         Gutty · il tuo diario della pancia
         <br />
         Non sostituisce il parere del medico.
@@ -378,9 +378,7 @@ function InstallCard() {
     <>
       <Sec title="Installa sul telefono" />
       <section className="sheet install">
-        <span className="install-mark">
-          <MoodFace face="happy" size={40} stroke={2} fill="var(--card)" color="var(--primary)" />
-        </span>
+        <Mascot face="happy" size={56} still />
         <div>
           <p>Aggiungila alla schermata Home: si apre come un’app, a schermo intero, e funziona anche offline.</p>
           {canPrompt ? (

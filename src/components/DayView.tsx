@@ -6,7 +6,7 @@ import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
 import { LEVELS, MEALS, MOMENT_INFO, mealNow, mealsOf, momentNow, withMeals } from '../day';
 import type { DayEntry, Food, Meal, Moment, MomentLog } from '../types';
-import { Icon, MoodFace, Sec, dayMood, heatLevel, levelWord, type Face } from '../ui';
+import { Icon, Mascot, Sec, dayMood, heatLevel, levelWord, type Face } from '../ui';
 
 const BRISTOL = ['Grumi duri separati', 'Salsiccia grumosa', 'Salsiccia screpolata', 'Liscia e morbida', 'Pezzi morbidi', 'Poltiglia', 'Liquida'];
 const FALLBACK_FREQUENT = ['caffe', 'pasta-di-grano', 'pane', 'latte', 'pizza', 'cipolla', 'aglio', 'vino'];
@@ -143,9 +143,7 @@ export function DayView({ date, onDateChange }: Props) {
       )}
 
       <section className="mood" aria-live="polite">
-        <div className="mood-mark">
-          <MoodFace face={mood.face} size={64} stroke={3} fill="var(--card)" color="var(--primary)" />
-        </div>
+        <Mascot face={mood.face} />
         <h2>{mood.title}</h2>
         <p>{mood.line}</p>
         {score !== undefined && (
@@ -337,7 +335,7 @@ function LevelPicker({ label, value, onChange }: { label: string; value: number 
     <div className="faces" role="group" aria-label={label}>
       {LEVELS.map((l, lv) => (
         <button key={lv} aria-pressed={value === lv} aria-label={`${label}: ${l.label}`} onClick={() => onChange(value === lv ? undefined : lv)}>
-          <MoodFace face={l.face} size={34} stroke={1.8} />
+          <Mascot face={l.face} size={38} still />
           {l.label}
         </button>
       ))}
@@ -423,7 +421,7 @@ function FacePicker({
           const n = i + 1;
           return (
             <button key={n} aria-pressed={value === n} aria-label={`${label}: ${o.label}`} onClick={() => onChange(value === n ? undefined : n)}>
-              <MoodFace face={o.face} size={34} stroke={1.8} />
+              <Mascot face={o.face} size={38} still />
               {o.label}
             </button>
           );

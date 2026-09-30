@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 import type { Confidence } from './analysis';
 
 /* ---------------------------------------------------------------
@@ -78,65 +78,68 @@ export function dayMood(score: number | undefined): { title: string; line: strin
 }
 
 /* ---------------------------------------------------------------
-   Faccine dell'umore
+   Mascotte: una pallina lavanda il cui viso segue la giornata
    --------------------------------------------------------------- */
-/**
- * Faccina dell'umore, disegnata come le altre icone dell'app: cerchio e tratti a linea.
- * Il riempimento arriva da `fill` o dalla variabile CSS --face-fill; il tratto dal colore corrente.
- */
-export function MoodFace({
-  face,
-  size = 24,
-  stroke = 1.8,
-  fill,
-  color,
-}: {
-  face: Face;
-  size?: number;
-  /** Spessore del tratto in pixel, uguale a qualunque dimensione. */
-  stroke?: number;
-  fill?: string;
-  color?: string;
-}) {
-  const line = {
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: stroke,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    vectorEffect: 'non-scaling-stroke',
-  } as const;
-  const eyes =
-    face === 'zen' ? (
-      <>
-        <path d="M7.6 10.2q1.4 1.2 2.8 0" {...line} />
-        <path d="M13.6 10.2q1.4 1.2 2.8 0" {...line} />
-      </>
-    ) : face === 'awful' ? (
-      <>
-        <path d="M7.8 8.6l2.2 1.4-2.2 1.4" {...line} />
-        <path d="M16.2 8.6l-2.2 1.4 2.2 1.4" {...line} />
-      </>
-    ) : (
-      <>
-        <path d="M9 9v1.6" {...line} />
-        <path d="M15 9v1.6" {...line} />
-      </>
-    );
-  const mouth = {
-    hello: 'M8.6 14q3.4 3 6.8 0',
-    zen: 'M9.2 14.4q2.8 2.2 5.6 0',
-    happy: 'M8.2 13.8q3.8 3.6 7.6 0',
-    ok: 'M9.6 14.8q2.4 1.4 4.8 0',
-    meh: 'M9.2 15.2h5.6',
-    sad: 'M8.8 16.4q3.2-2.6 6.4 0',
-    awful: 'M8 15.8q1-1 2 0t2 0 2 0 2 0',
-  }[face];
+const MOUTH: Record<Face, string> = {
+  hello: 'M49 71q11 10 22 0',
+  zen: 'M50 71q10 8 20 0',
+  happy: 'M47 70q13 13 26 0',
+  ok: 'M52 73q8 5 16 0',
+  meh: 'M52 75h16',
+  sad: 'M51 78q9 -7 18 0',
+  awful: 'M49 80q11 -10 22 0',
+};
+
+export function Mascot({ face, size = 112, still = false }: { face: Face; size?: number; still?: boolean }) {
+  const id = useId();
+  const closed = face === 'zen';
+  const squeezed = face === 'awful';
+  const blush = face === 'hello' || face === 'zen' || face === 'happy';
   return (
-    <svg className="mood-face" width={size} height={size} viewBox="0 0 24 24" aria-hidden style={color ? { color } : undefined}>
-      <circle cx="12" cy="12" r="10" {...line} fill={fill ?? 'var(--face-fill, none)'} />
-      {eyes}
-      <path d={mouth} {...line} />
+    <svg className={still ? undefined : 'mascot'} width={size} height={size} viewBox="0 0 120 120" aria-hidden>
+      <defs>
+        <radialGradient id={`${id}-g`} cx="35%" cy="28%" r="80%">
+          <stop offset="0" stopColor="#e4deff" />
+          <stop offset="0.5" stopColor="#a497f8" />
+          <stop offset="1" stopColor="#6f5ee8" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="60" cy="112" rx="30" ry="4" fill="#6f5ee8" opacity="0.12" />
+      <path d="M60 10c28 0 49 19 49 48 0 30-21 50-49 50S11 88 11 58 32 10 60 10z" fill={`url(#${id}-g)`} />
+      <ellipse cx="42" cy="32" rx="13" ry="7" fill="#fff" opacity="0.45" transform="rotate(-24 42 32)" />
+      {blush && (
+        <>
+          <circle cx="36" cy="70" r="6" fill="#ff9fb8" opacity="0.5" />
+          <circle cx="84" cy="70" r="6" fill="#ff9fb8" opacity="0.5" />
+        </>
+      )}
+      <g fill="none" stroke="#2a2350" strokeWidth="4" strokeLinecap="round">
+        {closed ? (
+          <>
+            <path d="M40 60q6 -6 12 0" />
+            <path d="M68 60q6 -6 12 0" />
+          </>
+        ) : null}
+        {squeezed ? (
+          <>
+            <path d="M40 55l10 5-10 5" />
+            <path d="M80 55l-10 5 10 5" />
+          </>
+        ) : null}
+        <path d={MOUTH[face]} />
+        {face === 'sad' && (
+          <>
+            <path d="M39 51l9 3" strokeWidth="3" />
+            <path d="M81 51l-9 3" strokeWidth="3" />
+          </>
+        )}
+      </g>
+      {!closed && !squeezed && (
+        <g fill="#2a2350">
+          <ellipse cx="46" cy="60" rx="4.2" ry="5.2" />
+          <ellipse cx="74" cy="60" rx="4.2" ry="5.2" />
+        </g>
+      )}
     </svg>
   );
 }
