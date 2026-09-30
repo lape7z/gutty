@@ -39,6 +39,8 @@ export function SettingsView() {
   const [manualCopy, setManualCopy] = useState<string | null>(null);
   // Forza il ricalcolo di ultimo backup e copia di sicurezza, che stanno fuori dal database.
   const [backupTick, setBackupTick] = useState(0);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
   const dayCount = useLiveQuery(() => db.days.count(), [], 0);
   const last = useMemo(() => lastBackupAt(), [backupTick]);
   const snapshot = useMemo(() => snapshotInfo(), [backupTick]);
@@ -117,6 +119,17 @@ export function SettingsView() {
     const csv = [header, ...rows].map((r) => r.map(csvCell).join(';')).join('\n');
     // Il BOM serve a Excel per leggere gli accenti; negli appunti non serve.
     await deliver(`gutty-diario-${todayISO()}.csv`, CAN_DOWNLOAD ? '\uFEFF' + csv : csv, 'text/csv;charset=utf-8', 'Diario in formato CSV');
+  };
+
+  const importText = async (text: string) => {
+    try {
+      const n = await importBackup(JSON.parse(text));
+      setMessage(`Importate ${n} giornate.`);
+      setPasteOpen(false);
+      setPasteText('');
+    } catch (e) {
+      setMessage(e instanceof SyntaxError ? 'Il testo incollato non è un backup completo: copialo di nuovo per intero.' : e instanceof Error ? e.message : 'Importazione non riuscita.');
+    }
   };
 
   const onImport = async (file: File) => {
@@ -245,6 +258,46 @@ export function SettingsView() {
               }}
             />
           </li>
+          <li>
+            <button className="list-action" onClick={() => setPasteOpen((v) => !v)}>
+              <span className="ico">
+                <Icon name="paste" />
+              </span>
+              <span>
+                Incolla backup
+                <span className="hint">Se il backup è negli appunti, per esempio copiato dall’anteprima</span>
+              </span>
+            </button>
+          </li>
+          {pasteOpen && (
+            <li className="paste-row">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void importText(pasteText);
+                }}
+              >
+                <label className="sr-only" htmlFor="paste-backup">
+                  Testo del backup
+                </label>
+                <textarea
+                  id="paste-backup"
+                  className="field"
+                  placeholder="Tieni premuto qui e scegli Incolla"
+                  value={pasteText}
+                  onChange={(e) => setPasteText(e.target.value)}
+                />
+                <div className="row-actions" style={{ marginTop: 10 }}>
+                  <button className="btn" type="submit" disabled={!pasteText.trim()}>
+                    Importa
+                  </button>
+                  <button className="btn link" type="button" onClick={() => setPasteOpen(false)}>
+                    Annulla
+                  </button>
+                </div>
+              </form>
+            </li>
+          )}
           <li>
             <button className="list-action" onClick={exportCsv}>
               <span className="ico">
@@ -436,6 +489,10 @@ function InstallCard() {
             </button>
           ) : isIOS() ? (
             <ol>
+              <li>
+                Se hai già inserito dati qui, prima tocca <strong>Salva backup</strong> qui sotto: l’app sulla Home
+                parte vuota e li ritrovi con <strong>Importa backup</strong>.
+              </li>
               <li>
                 Apri questa pagina con <strong>Safari</strong>.
               </li>

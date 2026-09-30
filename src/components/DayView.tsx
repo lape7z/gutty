@@ -44,6 +44,9 @@ export function DayView({ date, onDateChange }: Props) {
   const [meal, setMeal] = useState<Meal>(() => mealNow());
   const [skipNight, setSkipNight] = useState(false);
   const [nudgeHidden, setNudgeHidden] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  useEffect(() => setSavedAt(null), [date]);
 
   // Il draft si inizializza dal database solo quando cambia giorno; poi è lui la fonte di verità.
   useEffect(() => {
@@ -67,6 +70,7 @@ export function DayView({ date, onDateChange }: Props) {
   const update = (patch: Partial<DayEntry>) => {
     const next = { ...draft, ...patch, updatedAt: Date.now() };
     setDraft(next);
+    setSavedAt(null);
     void saveDay(next);
   };
 
@@ -112,6 +116,13 @@ export function DayView({ date, onDateChange }: Props) {
   const saveNight = (level: number) => {
     const base = yesterday ?? emptyDay(addDays(today, -1));
     void saveDay({ ...base, moments: { ...base.moments, sera: { level, symptoms: [] } }, updatedAt: Date.now() });
+  };
+
+  // Il salvataggio avviene già a ogni tocco: il pulsante lo ripete e lo conferma, per stare tranquilli.
+  const confirmSave = async () => {
+    await saveDay(draft);
+    const stored = await db.days.get(draft.date);
+    if (stored) setSavedAt(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }));
   };
 
   const showNudge = date === today && !nudgeHidden && backupDue(allDays.length);
@@ -299,15 +310,18 @@ export function DayView({ date, onDateChange }: Props) {
         />
       </section>
 
-      <p className="saved">
-        {draft.updatedAt > 0 ? (
-          <>
-            <Icon name="check" size={16} /> Salvato sul tuo dispositivo
-          </>
-        ) : (
-          'Le modifiche si salvano da sole'
-        )}
-      </p>
+      <div className="save-day">
+        <button className="btn block" disabled={draft.updatedAt === 0} onClick={() => void confirmSave()}>
+          <Icon name="check" size={18} /> Salva la giornata
+        </button>
+        <p className="saved" aria-live="polite">
+          {draft.updatedAt === 0
+            ? 'Segna qualcosa: si salva anche da solo, a ogni tocco.'
+            : savedAt
+              ? `Salvata alle ${savedAt}. Puoi tornare a modificarla quando vuoi.`
+              : `Salvata in automatico alle ${new Date(draft.updatedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}. Resta modificabile.`}
+        </p>
+      </div>
     </>
   );
 }

@@ -12,6 +12,7 @@ const PATHS = {
   x: 'M7 7l10 10M17 7L7 17',
   check: 'M5 12.5l4.5 4.5L19 7.5',
   download: 'M12 4v11M7 10.5l5 5 5-5M5 20h14',
+  paste: 'M9 4.5h6v3H9zM9 6H6.5v14h11V6H15M9.5 12h5M9.5 15.5h5',
   upload: 'M12 16V5M7 9.5l5-5 5 5M5 20h14',
   table: 'M4 5h16v14H4zM4 10h16M4 15h16M10 5v14',
   sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z',

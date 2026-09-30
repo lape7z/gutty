@@ -1732,6 +1732,22 @@ details.disclosure .body {
   font-size: 0.9rem;
 }
 
+.list li.paste-row {
+  display: block;
+  padding: 4px 0 14px;
+}
+.save-day {
+  margin-top: 22px;
+}
+.save-day .btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.save-day .saved {
+  margin-top: 10px;
+  text-align: center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
