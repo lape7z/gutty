@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { addDays, formatLong, todayISO } from '../date';
 import { overallScore, useActiveSymptoms, useDays, useFactorNames } from '../hooks';
 import { LEVELS, MOMENT_INFO } from '../day';
-import { Icon, Mascot, Sec, heatStyle, levelWord } from '../ui';
+import { Icon, MoodFace, Sec, heatLevel, heatStyle, levelWord } from '../ui';
 
 const WEEKDAYS = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
 const fmtMonth = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' });
@@ -148,7 +148,7 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
                 <li key={d.date}>
                   <button className="entry" onClick={() => onOpen(d.date)}>
                     <span className="badge" aria-label={s === undefined ? 'Senza sintomi segnati' : `In media ${levelWord(s).toLowerCase()}`}>
-                      {s === undefined ? '–' : <Mascot face={LEVELS[Math.round(s)].face} size={36} still />}
+                      {s === undefined ? '–' : <MoodFace face={LEVELS[Math.round(s)].face} size={34} stroke={1.8} fill={`var(--v-${heatLevel(s)})`} color={`var(--v-ink-${heatLevel(s)})`} />}
                     </span>
                     <span>
                       <span className="title">{formatLong(d.date)}</span>

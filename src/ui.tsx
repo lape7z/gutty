@@ -1,4 +1,4 @@
-import { useId, type CSSProperties, type ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { Confidence } from './analysis';
 
 /* ---------------------------------------------------------------
@@ -78,90 +78,65 @@ export function dayMood(score: number | undefined): { title: string; line: strin
 }
 
 /* ---------------------------------------------------------------
-   Mascotte: un mochi color albicocca con occhi grandi; l'espressione segue la giornata
+   Faccine dell'umore
    --------------------------------------------------------------- */
-/** Occhi grandi con pupilla: `look` sposta lo sguardo (es. di lato quando c'è disagio). */
-function Eyes({ ink, look = 0 }: { ink: string; look?: number }) {
+/**
+ * Faccina dell'umore, disegnata come le altre icone dell'app: cerchio e tratti a linea.
+ * Il riempimento arriva da `fill` o dalla variabile CSS --face-fill; il tratto dal colore corrente.
+ */
+export function MoodFace({
+  face,
+  size = 24,
+  stroke = 1.8,
+  fill,
+  color,
+}: {
+  face: Face;
+  size?: number;
+  /** Spessore del tratto in pixel, uguale a qualunque dimensione. */
+  stroke?: number;
+  fill?: string;
+  color?: string;
+}) {
+  const line = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: stroke,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    vectorEffect: 'non-scaling-stroke',
+  } as const;
+  const eyes =
+    face === 'zen' ? (
+      <>
+        <path d="M7.6 10.2q1.4 1.2 2.8 0" {...line} />
+        <path d="M13.6 10.2q1.4 1.2 2.8 0" {...line} />
+      </>
+    ) : face === 'awful' ? (
+      <>
+        <path d="M7.8 8.6l2.2 1.4-2.2 1.4" {...line} />
+        <path d="M16.2 8.6l-2.2 1.4 2.2 1.4" {...line} />
+      </>
+    ) : (
+      <>
+        <path d="M9 9v1.6" {...line} />
+        <path d="M15 9v1.6" {...line} />
+      </>
+    );
+  const mouth = {
+    hello: 'M8.6 14q3.4 3 6.8 0',
+    zen: 'M9.2 14.4q2.8 2.2 5.6 0',
+    happy: 'M8.2 13.8q3.8 3.6 7.6 0',
+    ok: 'M9.6 14.8q2.4 1.4 4.8 0',
+    meh: 'M9.2 15.2h5.6',
+    sad: 'M8.8 16.4q3.2-2.6 6.4 0',
+    awful: 'M8 15.8q1-1 2 0t2 0 2 0 2 0',
+  }[face];
   return (
-    <>
-      {[44, 76].map((cx) => (
-        <g key={cx}>
-          <ellipse cx={cx} cy={58} rx={9} ry={10} fill="#fff" stroke={ink} strokeWidth={2.2} />
-          <circle cx={cx + 1 + look} cy={60} r={4.6} fill={ink} />
-          <circle cx={cx + 2.6 + look} cy={58} r={1.6} fill="#fff" />
-        </g>
-      ))}
-    </>
-  );
-}
-
-export function Mascot({ face, size = 112, still = false }: { face: Face; size?: number; still?: boolean }) {
-  const id = useId();
-  const ink = '#3b2a2a';
-  const blush = face === 'hello' || face === 'zen' || face === 'happy';
-  const line = { fill: 'none', stroke: ink, strokeWidth: 3.6, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
-  return (
-    <svg className={still ? undefined : 'mascot'} width={size} height={size} viewBox="0 0 120 120" aria-hidden>
-      <defs>
-        <radialGradient id={`${id}-g`} cx="38%" cy="30%" r="85%">
-          <stop offset="0" stopColor="#fff3e8" />
-          <stop offset="0.45" stopColor="#ffc9a3" />
-          <stop offset="1" stopColor="#f0946a" />
-        </radialGradient>
-      </defs>
-      <ellipse cx="60" cy="109" rx="36" ry="4" fill="#f0946a" opacity="0.16" />
-      {/* Corpo a "mochi": morbido sopra, base piatta, con un ciuffetto. */}
-      <path d="M12 84C12 46 32 20 60 20s48 26 48 64c0 12-8 18-20 18H32c-12 0-20-6-20-18z" fill={`url(#${id}-g)`} />
-      <path d="M58 21c-1-7 4-11 10-9" fill="none" stroke="#e98457" strokeWidth="3.5" strokeLinecap="round" />
-      <ellipse cx="34" cy="38" rx="9" ry="5" fill="#fff" opacity="0.55" transform="rotate(-28 34 38)" />
-      <g transform="translate(0 6)">
-        {blush && (
-          <>
-            <ellipse cx="30" cy="74" rx="7" ry="4.5" fill="#ff8a8a" opacity="0.45" />
-            <ellipse cx="90" cy="74" rx="7" ry="4.5" fill="#ff8a8a" opacity="0.45" />
-          </>
-        )}
-
-        {/* Occhi */}
-        {face === 'zen' && (
-          <>
-            <path d="M36 58q8 7 16 0" {...line} />
-            <path d="M68 58q8 7 16 0" {...line} />
-          </>
-        )}
-        {face === 'awful' && (
-          <>
-            <path d="M37 52l12 6-12 6" {...line} />
-            <path d="M83 52l-12 6 12 6" {...line} />
-          </>
-        )}
-        {face !== 'zen' && face !== 'awful' && <Eyes ink={ink} look={face === 'meh' ? 2.5 : face === 'sad' ? -1 : 0} />}
-
-        {/* Sopracciglia per le giornate storte */}
-        {face === 'sad' && (
-          <>
-            <path d="M35 44l12 -4" {...line} strokeWidth={3} />
-            <path d="M85 44l-12 -4" {...line} strokeWidth={3} />
-          </>
-        )}
-
-        {/* Bocca */}
-        {(face === 'hello' || face === 'happy') && (
-          <>
-            <path d={face === 'happy' ? 'M49 73q11 14 22 0z' : 'M51 74q9 11 18 0z'} fill={ink} stroke={ink} strokeWidth={2.5} strokeLinejoin="round" />
-            <ellipse cx="60" cy={face === 'happy' ? 81 : 80} rx="5" ry="2.6" fill="#ff7f8e" />
-          </>
-        )}
-        {face === 'zen' && <path d="M55 75q5 4 10 0" {...line} />}
-        {face === 'ok' && <path d="M55 76q5 3.5 10 0" {...line} />}
-        {face === 'meh' && <path d="M54 78h12" {...line} />}
-        {face === 'sad' && <path d="M53 81q7 -6 14 0" {...line} />}
-        {face === 'awful' && <path d="M48 79q3 -3 6 0t6 0 6 0 6 0" {...line} />}
-
-        {/* Lacrima e goccia di sudore */}
-        {face === 'sad' && <path d="M36 70q-3 5 0 7q3 -2 0 -7z" fill="#7cc0f5" />}
-        {face === 'awful' && <path d="M92 36q-4 6 0 9q4 -3 0 -9z" fill="#7cc0f5" />}
-      </g>
+    <svg className="mood-face" width={size} height={size} viewBox="0 0 24 24" aria-hidden style={color ? { color } : undefined}>
+      <circle cx="12" cy="12" r="10" {...line} fill={fill ?? 'var(--face-fill, none)'} />
+      {eyes}
+      <path d={mouth} {...line} />
     </svg>
   );
 }
