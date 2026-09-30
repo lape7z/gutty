@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { dayScore } from '../analysis';
 import { todayISO } from '../date';
+import { lastBackupAt, restoreSnapshot, saveBackup, snapshotInfo, takeSnapshot } from '../backup';
 import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { generateDemo } from '../demo';
@@ -35,6 +37,11 @@ export function SettingsView() {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState<'demo' | 'wipe' | null>(null);
   const [manualCopy, setManualCopy] = useState<string | null>(null);
+  // Forza il ricalcolo di ultimo backup e copia di sicurezza, che stanno fuori dal database.
+  const [backupTick, setBackupTick] = useState(0);
+  const dayCount = useLiveQuery(() => db.days.count(), [], 0);
+  const last = useMemo(() => lastBackupAt(), [backupTick]);
+  const snapshot = useMemo(() => snapshotInfo(), [backupTick]);
 
   /** Scarica il file, oppure (in anteprima) lo copia negli appunti con un ripiego manuale. */
   const deliver = async (filename: string, content: string, type: string, what: string) => {
@@ -59,8 +66,15 @@ export function SettingsView() {
   const categories = [...new Set([...FOOD_CATEGORIES, ...foods.map((f) => f.category)])];
 
   const exportJson = async () => {
-    const backup = await exportBackup();
-    await deliver(`gutty-backup-${todayISO()}.json`, JSON.stringify(backup, null, 2), 'application/json', 'Backup');
+    setManualCopy(null);
+    const { result, text } = await saveBackup();
+    if (result === 'shared' || result === 'downloaded') setMessage('Backup salvato. Tienilo in un posto sicuro (iCloud Drive, Google Drive, email…).');
+    else if (result === 'copied') setMessage('Backup copiato negli appunti. Incollalo in una nota o in un file per conservarlo.');
+    else if (result === 'failed') {
+      setMessage('Copia automatica non riuscita: seleziona il testo qui sotto e copialo.');
+      setManualCopy(text ?? null);
+    }
+    setBackupTick((t) => t + 1);
   };
 
   // CSV con separatore ";" così si apre direttamente in Excel con impostazioni italiane.
@@ -115,16 +129,27 @@ export function SettingsView() {
   };
 
   // Le conferme sono nella pagina: i dialoghi del browser non sono disponibili ovunque.
+  // Prima di sostituire o cancellare il diario ne teniamo una copia, per poter tornare indietro.
   const loadDemo = async () => {
     setPending(null);
+    await takeSnapshot();
     await replaceDays(generateDemo());
-    setMessage('Caricati 120 giorni di esempio. Trigger nascosti: cipolla (giorno dopo), latte (stesso giorno), stress alto.');
+    setMessage('Caricati 120 giorni di esempio. I tuoi dati di prima si possono ripristinare qui sopra.');
+    setBackupTick((t) => t + 1);
   };
 
   const wipe = async () => {
     setPending(null);
+    await takeSnapshot();
     await wipeAll();
-    setMessage('Dati cancellati.');
+    setMessage('Dati cancellati. Se è stato un errore, puoi ripristinarli qui sopra.');
+    setBackupTick((t) => t + 1);
+  };
+
+  const restore = async () => {
+    const n = await restoreSnapshot();
+    setMessage(`Ripristinate ${n} giornate.`);
+    setBackupTick((t) => t + 1);
   };
 
   const addFood = async () => {
@@ -159,7 +184,29 @@ export function SettingsView() {
       {!import.meta.env.VITE_ARTIFACT && <InstallCard />}
 
       <Sec title="Dati" />
-      <section className="sheet flush">
+      <section className={`data-status${!last && dayCount > 0 ? ' warn' : ''}`}>
+        <strong>
+          {dayCount} {dayCount === 1 ? 'giornata salvata' : 'giornate salvate'} su questo telefono
+        </strong>
+        <span>
+          {last
+            ? `Ultimo backup: ${last.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' })}`
+            : dayCount > 0
+              ? 'Nessun backup ancora: salvane uno, così i dati sono al sicuro anche se il telefono li cancella.'
+              : 'Quando inizi a scrivere, ricordati di salvare ogni tanto un backup.'}
+        </span>
+      </section>
+      {snapshot && (
+        <section className="note" style={{ marginTop: 12 }}>
+          Hai una copia dei dati di prima dell’ultima sostituzione o cancellazione ({snapshot.days} giornate).
+          <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn" onClick={() => void restore()}>
+              Ripristina i dati di prima
+            </button>
+          </div>
+        </section>
+      )}
+      <section className="sheet flush" style={{ marginTop: 12 }}>
         <ul className="list">
           <li>
             <button className="list-action" onClick={exportJson}>
@@ -167,9 +214,11 @@ export function SettingsView() {
                 <Icon name="download" />
               </span>
               <span>
-                Esporta backup
+                Salva backup
                 <span className="hint">
-                  {CAN_DOWNLOAD ? 'File JSON da conservare o da importare su un altro dispositivo' : 'Copia i dati negli appunti, per conservarli o spostarli'}
+                  {CAN_DOWNLOAD
+                    ? 'Un file da tenere su iCloud Drive, Google Drive o email: con “Importa” ritrovi tutto'
+                    : 'Copia i dati negli appunti, per conservarli o spostarli'}
                 </span>
               </span>
             </button>

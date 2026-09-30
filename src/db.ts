@@ -3,6 +3,9 @@ import { DEFAULT_FOODS, DEFAULT_SYMPTOMS } from './defaults';
 import type { DayEntry, Food, Symptom } from './types';
 
 // Tutti i dati restano nel browser (IndexedDB): nessun server, nessun account.
+// IMPORTANTE per gli aggiornamenti: non cambiare il nome del database né rimuovere tabelle.
+// Per modificare lo schema aggiungi db.version(N + 1).stores(...).upgrade(...): Dexie migra i dati
+// esistenti e le nuove versioni dell'app ritrovano tutto il diario.
 export const db = new Dexie('gutty') as Dexie & {
   days: EntityTable<DayEntry, 'date'>;
   foods: EntityTable<Food, 'id'>;
@@ -65,6 +68,22 @@ export async function replaceDays(days: DayEntry[]): Promise<void> {
   await db.transaction('rw', db.days, async () => {
     await db.days.clear();
     await db.days.bulkPut(days);
+  });
+}
+
+/** Sostituisce l'intero diario con un backup (usato per annullare una sostituzione o una cancellazione). */
+export async function restoreBackup(b: Backup): Promise<void> {
+  await db.transaction('rw', db.days, db.foods, db.symptoms, async () => {
+    await db.days.clear();
+    await db.days.bulkPut(b.days);
+    if (b.foods?.length) {
+      await db.foods.clear();
+      await db.foods.bulkPut(b.foods);
+    }
+    if (b.symptoms?.length) {
+      await db.symptoms.clear();
+      await db.symptoms.bulkPut(b.symptoms);
+    }
   });
 }
 

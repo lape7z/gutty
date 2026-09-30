@@ -1683,6 +1683,55 @@ details.disclosure .body {
   }
 }
 
+.data-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 18px;
+  border-radius: var(--r-m);
+  background: var(--primary-soft);
+  font-size: 0.9rem;
+}
+.data-status span {
+  color: var(--ink-2);
+}
+.data-status.warn {
+  background: color-mix(in srgb, var(--worse) 12%, var(--card));
+}
+
+.backup-nudge {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+  padding: 16px;
+  border-radius: var(--r-l);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.backup-nudge > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--primary);
+}
+.backup-nudge p {
+  margin: 4px 0 10px;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.row-actions .btn:not(.link) {
+  min-height: 42px;
+  padding: 0 18px;
+  font-size: 0.9rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

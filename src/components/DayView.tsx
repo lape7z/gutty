@@ -4,6 +4,7 @@ import { addDays, todayISO } from '../date';
 import { db, emptyDay, saveDay } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
+import { backupDue, saveBackup, snoozeBackup } from '../backup';
 import { LEVELS, MEALS, MOMENT_INFO, mealNow, mealsOf, momentNow, withMeals } from '../day';
 import type { DayEntry, Food, Meal, Moment, MomentLog } from '../types';
 import { Icon, Mascot, Sec, dayMood, heatLevel, levelWord, type Face } from '../ui';
@@ -42,6 +43,7 @@ export function DayView({ date, onDateChange }: Props) {
   const [draft, setDraft] = useState<DayEntry | null>(null);
   const [meal, setMeal] = useState<Meal>(() => mealNow());
   const [skipNight, setSkipNight] = useState(false);
+  const [nudgeHidden, setNudgeHidden] = useState(false);
 
   // Il draft si inizializza dal database solo quando cambia giorno; poi è lui la fonte di verità.
   useEffect(() => {
@@ -112,6 +114,12 @@ export function DayView({ date, onDateChange }: Props) {
     void saveDay({ ...base, moments: { ...base.moments, sera: { level, symptoms: [] } }, updatedAt: Date.now() });
   };
 
+  const showNudge = date === today && !nudgeHidden && backupDue(allDays.length);
+  const doBackup = async () => {
+    const { result } = await saveBackup();
+    if (result !== 'cancelled' && result !== 'failed') setNudgeHidden(true);
+  };
+
   return (
     <>
       <header className="hello">
@@ -129,6 +137,30 @@ export function DayView({ date, onDateChange }: Props) {
       </header>
 
       <WeekStrip date={date} today={today} scores={scores} onSelect={onDateChange} />
+
+      {showNudge && (
+        <section className="backup-nudge" aria-label="Promemoria backup">
+          <Icon name="download" />
+          <div>
+            <strong>Salva una copia del diario</strong>
+            <p>I dati stanno solo su questo telefono. Con un backup su iCloud, Drive o email non li perdi mai.</p>
+            <div className="row-actions">
+              <button className="btn" onClick={() => void doBackup()}>
+                Salva backup
+              </button>
+              <button
+                className="btn link"
+                onClick={() => {
+                  snoozeBackup();
+                  setNudgeHidden(true);
+                }}
+              >
+                Più tardi
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {askNight && (
         <section className="night" aria-label="Ieri sera e stanotte">
