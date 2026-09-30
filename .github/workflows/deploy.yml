@@ -1,8 +1,8 @@
 name: Test e pubblicazione su GitHub Pages
 
+# Test e build a ogni push; pubblicazione solo dal branch principale del repository.
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,12 +30,12 @@ jobs:
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3
-        if: github.ref == 'refs/heads/main'
+        if: github.ref_name == github.event.repository.default_branch
         with:
           path: dist
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref_name == github.event.repository.default_branch
     needs: build
     runs-on: ubuntu-latest
     environment:

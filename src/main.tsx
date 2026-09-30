@@ -2,10 +2,14 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import { App } from './App';
+import { captureInstallPrompt } from './install';
 import './styles.css';
 
 // Nella versione anteprima (file unico) non c'è service worker.
-if (!import.meta.env.VITE_ARTIFACT) registerSW({ immediate: true });
+if (!import.meta.env.VITE_ARTIFACT) {
+  registerSW({ immediate: true });
+  captureInstallPrompt();
+}
 
 // Chiede al browser di non cancellare i dati in caso di poco spazio (importante su iOS/Safari).
 void navigator.storage?.persist?.();

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { dayScore } from '../analysis';
 import { todayISO } from '../date';
 import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
@@ -8,6 +8,7 @@ import { LEVELS, MEALS, MOMENT_INFO, mealsOf } from '../day';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
 import type { DayEntry, Moment } from '../types';
 import { Icon, Mascot, Sec } from '../ui';
+import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from '../install';
 
 // Nella versione anteprima (pagina pubblicata) il browser blocca i download: copiamo negli appunti.
 const CAN_DOWNLOAD = !import.meta.env.VITE_ARTIFACT;
@@ -156,6 +157,8 @@ export function SettingsView() {
         <h1>Il tuo spazio</h1>
         <p>I tuoi dati restano su questo dispositivo: niente account, niente server.</p>
       </header>
+
+      {!import.meta.env.VITE_ARTIFACT && <InstallCard />}
 
       <Sec title="Dati" />
       <section className="sheet flush">
@@ -361,6 +364,53 @@ export function SettingsView() {
         <br />
         Non sostituisce il parere del medico.
       </footer>
+    </>
+  );
+}
+
+/** Invito a installare l'app sul telefono; sparisce quando è già installata. */
+function InstallCard() {
+  const [canPrompt, setCanPrompt] = useState(canPromptInstall);
+  const [done, setDone] = useState(false);
+  useEffect(() => onInstallChange(() => setCanPrompt(canPromptInstall())), []);
+
+  if (isStandalone() || done) return null;
+
+  return (
+    <>
+      <Sec title="Installa sul telefono" />
+      <section className="sheet install">
+        <Mascot face="happy" size={56} still />
+        <div>
+          <p>Aggiungila alla schermata Home: si apre come un’app, a schermo intero, e funziona anche offline.</p>
+          {canPrompt ? (
+            <button className="btn" onClick={() => void promptInstall().then((ok) => ok && setDone(true))}>
+              Installa Gutty
+            </button>
+          ) : isIOS() ? (
+            <ol>
+              <li>
+                Apri questa pagina con <strong>Safari</strong>.
+              </li>
+              <li>
+                Tocca <strong>Condividi</strong> (il quadrato con la freccia in su).
+              </li>
+              <li>
+                Scegli <strong>Aggiungi alla schermata Home</strong>.
+              </li>
+            </ol>
+          ) : (
+            <ol>
+              <li>
+                Apri il menu del browser (<strong>⋮</strong>).
+              </li>
+              <li>
+                Scegli <strong>Installa app</strong> o <strong>Aggiungi a schermata Home</strong>.
+              </li>
+            </ol>
+          )}
+        </div>
+      </section>
     </>
   );
 }
