@@ -5,7 +5,8 @@ import { DiaryView } from './components/DiaryView';
 import { InsightsView } from './components/InsightsView';
 import { SettingsView } from './components/SettingsView';
 import { Welcome } from './components/Welcome';
-import { db } from './db';
+import { db, replaceDays } from './db';
+import { generateDemo } from './demo';
 import { todayISO } from './date';
 import { Icon, type IconName } from './ui';
 
@@ -52,7 +53,13 @@ export function App() {
   if (dayCount === undefined) return null;
   // Il benvenuto compare solo al primo avvio, e mai se ci sono già dati.
   if (!welcomed && dayCount === 0) {
-    return <Welcome onStart={() => finishWelcome('oggi')} onRestore={() => finishWelcome('impostazioni')} />;
+    return (
+      <Welcome
+        onStart={() => finishWelcome('oggi')}
+        onRestore={() => finishWelcome('impostazioni')}
+        onDemo={() => void replaceDays(generateDemo()).then(() => finishWelcome('analisi'))}
+      />
+    );
   }
 
   return (

@@ -7,6 +7,9 @@ import { generateDemo } from '../demo';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
 import { Icon, Mascot, Sec } from '../ui';
 
+// Nella versione anteprima (pagina pubblicata) il browser blocca i download: copiamo negli appunti.
+const CAN_DOWNLOAD = !import.meta.env.VITE_ARTIFACT;
+
 function download(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const a = document.createElement('a');
@@ -27,6 +30,24 @@ export function SettingsView() {
   const nameOf = useFactorNames();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [pending, setPending] = useState<'demo' | 'wipe' | null>(null);
+  const [manualCopy, setManualCopy] = useState<string | null>(null);
+
+  /** Scarica il file, oppure (in anteprima) lo copia negli appunti con un ripiego manuale. */
+  const deliver = async (filename: string, content: string, type: string, what: string) => {
+    setManualCopy(null);
+    if (CAN_DOWNLOAD) {
+      download(filename, content, type);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(content);
+      setMessage(`${what} copiato negli appunti. Incollalo in una nota o in un file per conservarlo.`);
+    } catch {
+      setMessage(`Copia automatica non riuscita: seleziona il testo qui sotto e copialo.`);
+      setManualCopy(content);
+    }
+  };
   const [newFood, setNewFood] = useState('');
   const [newFoodCat, setNewFoodCat] = useState(FOOD_CATEGORIES[0]);
   const [newSymptom, setNewSymptom] = useState('');
@@ -36,7 +57,7 @@ export function SettingsView() {
 
   const exportJson = async () => {
     const backup = await exportBackup();
-    download(`gutty-backup-${todayISO()}.json`, JSON.stringify(backup, null, 2), 'application/json');
+    await deliver(`gutty-backup-${todayISO()}.json`, JSON.stringify(backup, null, 2), 'application/json', 'Backup');
   };
 
   // CSV con separatore ";" così si apre direttamente in Excel con impostazioni italiane.
@@ -57,7 +78,8 @@ export function SettingsView() {
         d.notes,
       ]);
     const csv = [header, ...rows].map((r) => r.map(csvCell).join(';')).join('\n');
-    download(`gutty-diario-${todayISO()}.csv`, '﻿' + csv, 'text/csv;charset=utf-8');
+    // Il BOM serve a Excel per leggere gli accenti; negli appunti non serve.
+    await deliver(`gutty-diario-${todayISO()}.csv`, CAN_DOWNLOAD ? '\uFEFF' + csv : csv, 'text/csv;charset=utf-8', 'Diario in formato CSV');
   };
 
   const onImport = async (file: File) => {
@@ -69,14 +91,15 @@ export function SettingsView() {
     }
   };
 
+  // Le conferme sono nella pagina: i dialoghi del browser non sono disponibili ovunque.
   const loadDemo = async () => {
-    if (!confirm('I dati di esempio sostituiscono il diario attuale. Esporta prima un backup se hai già dei dati. Continuare?')) return;
+    setPending(null);
     await replaceDays(generateDemo());
     setMessage('Caricati 120 giorni di esempio. Trigger nascosti: cipolla (giorno dopo), latte (stesso giorno), stress alto.');
   };
 
   const wipe = async () => {
-    if (!confirm('Cancellare TUTTI i dati dal dispositivo? L’operazione non si può annullare.')) return;
+    setPending(null);
     await wipeAll();
     setMessage('Dati cancellati.');
   };
@@ -120,7 +143,9 @@ export function SettingsView() {
               </span>
               <span>
                 Esporta backup
-                <span className="hint">File JSON da conservare o da importare su un altro dispositivo</span>
+                <span className="hint">
+                  {CAN_DOWNLOAD ? 'File JSON da conservare o da importare su un altro dispositivo' : 'Copia i dati negli appunti, per conservarli o spostarli'}
+                </span>
               </span>
             </button>
           </li>
@@ -153,12 +178,14 @@ export function SettingsView() {
               </span>
               <span>
                 Esporta per Excel
-                <span className="hint">CSV da portare al medico o analizzare a modo tuo</span>
+                <span className="hint">
+                  {CAN_DOWNLOAD ? 'CSV da portare al medico o analizzare a modo tuo' : 'Copia il diario in formato tabella, da incollare in Excel'}
+                </span>
               </span>
             </button>
           </li>
           <li>
-            <button className="list-action" onClick={loadDemo}>
+            <button className="list-action" onClick={() => setPending('demo')}>
               <span className="ico">
                 <Icon name="sparkle" />
               </span>
@@ -169,7 +196,7 @@ export function SettingsView() {
             </button>
           </li>
           <li>
-            <button className="list-action danger" onClick={wipe}>
+            <button className="list-action danger" onClick={() => setPending('wipe')}>
               <span className="ico">
                 <Icon name="trash" />
               </span>
@@ -178,10 +205,41 @@ export function SettingsView() {
           </li>
         </ul>
       </section>
-      {message && (
+      {pending && (
+        <div className="note" role="alertdialog" aria-live="assertive" style={{ marginTop: 12 }}>
+          <p style={{ margin: '0 0 12px' }}>
+            {pending === 'demo'
+              ? 'I dati di esempio sostituiscono il diario attuale. Se hai già dei dati, esporta prima un backup.'
+              : 'Vuoi cancellare tutti i dati da questo dispositivo? Non si può annullare.'}
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn"
+              style={pending === 'wipe' ? { background: 'var(--danger)' } : undefined}
+              onClick={() => void (pending === 'demo' ? loadDemo() : wipe())}
+            >
+              {pending === 'demo' ? 'Carica esempio' : 'Cancella tutto'}
+            </button>
+            <button className="btn link" onClick={() => setPending(null)}>
+              Annulla
+            </button>
+          </div>
+        </div>
+      )}
+      {message && !pending && (
         <p className="note" role="status" style={{ marginTop: 12 }}>
           {message}
         </p>
+      )}
+      {manualCopy && (
+        <textarea
+          id="manual-copy"
+          className="field"
+          readOnly
+          value={manualCopy}
+          style={{ marginTop: 8, minHeight: 140, fontSize: '0.8rem' }}
+          onFocus={(e) => e.currentTarget.select()}
+        />
       )}
 
       <Sec title="Sintomi" aside="scegli cosa seguire" />
