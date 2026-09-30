@@ -39,7 +39,7 @@ npm test          # test del motore di analisi
 npm run build     # build di produzione in dist/
 ```
 
-Stack: React + TypeScript + Vite, Dexie (IndexedDB), vite-plugin-pwa. Font Archivo (Expanded) e JetBrains Mono inclusi nel bundle (funzionano offline).
+Stack: React + TypeScript + Vite, Dexie (IndexedDB), vite-plugin-pwa. Font Plus Jakarta Sans incluso nel bundle (funziona offline).
 Nessuna libreria di grafici né di componenti: SVG/CSS scritti a mano, con palette verificata per il daltonismo e tema chiaro/scuro.
 
 ```

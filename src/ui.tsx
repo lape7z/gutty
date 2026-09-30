@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useId, type CSSProperties, type ReactNode } from 'react';
 import type { Confidence } from './analysis';
 
 /* ---------------------------------------------------------------
@@ -44,7 +44,7 @@ export function Icon({ name, size = 20, style }: { name: IconName; size?: number
 }
 
 /* ---------------------------------------------------------------
-   Intensità → scala viola a 5 gradini (0 = nessun sintomo)
+   Intensità → scala lavanda a 5 gradini (0 = nessun sintomo)
    --------------------------------------------------------------- */
 export function heatLevel(score: number): 0 | 1 | 2 | 3 | 4 | 5 {
   if (score <= 0) return 0;
@@ -64,17 +64,78 @@ export function intensityWord(v: number): string {
   return 'forte';
 }
 
-export function dayMood(score: number | undefined): { title: string; line: string } {
-  if (score === undefined) return { title: 'Com’è andata?', line: 'Segna sintomi e pasti. Si salva da solo.' };
-  if (score === 0) return { title: 'Pancia zen', line: 'Nessun sintomo. Goditela.' };
-  if (score < 2) return { title: 'Tutto ok', line: 'Qualche fastidio, niente di che.' };
-  if (score < 4) return { title: 'Brontolii', line: 'Sintomi presenti ma gestibili.' };
-  if (score < 6) return { title: 'Pancia nervosa', line: 'Sintomi moderati. Tieni traccia di tutto.' };
-  return { title: 'Pancia in rivolta', line: 'Sintomi forti. Annota cosa hai mangiato: servirà.' };
+export type Face = 'hello' | 'zen' | 'happy' | 'ok' | 'meh' | 'sad';
+
+export function dayMood(score: number | undefined): { title: string; line: string; face: Face } {
+  if (score === undefined) return { title: 'Come stai oggi?', line: 'Annota sintomi e pasti: bastano pochi tocchi.', face: 'hello' };
+  if (score === 0) return { title: 'Pancia serena', line: 'Nessun sintomo oggi. Bene così.', face: 'zen' };
+  if (score < 2) return { title: 'Giornata tranquilla', line: 'Solo qualche lieve fastidio.', face: 'happy' };
+  if (score < 4) return { title: 'Qualche fastidio', line: 'Sintomi leggeri, ma ci sono.', face: 'ok' };
+  if (score < 6) return { title: 'Giornata impegnativa', line: 'Prenditi cura di te e annota cosa hai mangiato.', face: 'meh' };
+  return { title: 'Giornata difficile', line: 'Ci sta. Segna tutto: aiuterà a capire perché.', face: 'sad' };
 }
 
 /* ---------------------------------------------------------------
-   Evidenza statistica: barre crescenti + parola (mai solo colore)
+   Mascotte: una pallina lavanda il cui viso segue la giornata
+   --------------------------------------------------------------- */
+const MOUTH: Record<Face, string> = {
+  hello: 'M49 71q11 10 22 0',
+  zen: 'M50 71q10 8 20 0',
+  happy: 'M47 70q13 13 26 0',
+  ok: 'M52 73q8 5 16 0',
+  meh: 'M52 75h16',
+  sad: 'M51 78q9 -7 18 0',
+};
+
+export function Mascot({ face, size = 112, still = false }: { face: Face; size?: number; still?: boolean }) {
+  const id = useId();
+  const closed = face === 'zen';
+  const blush = face === 'hello' || face === 'zen' || face === 'happy';
+  return (
+    <svg className={still ? undefined : 'mascot'} width={size} height={size} viewBox="0 0 120 120" aria-hidden>
+      <defs>
+        <radialGradient id={`${id}-g`} cx="35%" cy="28%" r="80%">
+          <stop offset="0" stopColor="#e4deff" />
+          <stop offset="0.5" stopColor="#a497f8" />
+          <stop offset="1" stopColor="#6f5ee8" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="60" cy="112" rx="30" ry="4" fill="#6f5ee8" opacity="0.12" />
+      <path d="M60 10c28 0 49 19 49 48 0 30-21 50-49 50S11 88 11 58 32 10 60 10z" fill={`url(#${id}-g)`} />
+      <ellipse cx="42" cy="32" rx="13" ry="7" fill="#fff" opacity="0.45" transform="rotate(-24 42 32)" />
+      {blush && (
+        <>
+          <circle cx="36" cy="70" r="6" fill="#ff9fb8" opacity="0.5" />
+          <circle cx="84" cy="70" r="6" fill="#ff9fb8" opacity="0.5" />
+        </>
+      )}
+      <g fill="none" stroke="#2a2350" strokeWidth="4" strokeLinecap="round">
+        {closed ? (
+          <>
+            <path d="M40 60q6 -6 12 0" />
+            <path d="M68 60q6 -6 12 0" />
+          </>
+        ) : null}
+        <path d={MOUTH[face]} />
+        {face === 'sad' && (
+          <>
+            <path d="M39 51l9 3" strokeWidth="3" />
+            <path d="M81 51l-9 3" strokeWidth="3" />
+          </>
+        )}
+      </g>
+      {!closed && (
+        <g fill="#2a2350">
+          <ellipse cx="46" cy="60" rx="4.2" ry="5.2" />
+          <ellipse cx="74" cy="60" rx="4.2" ry="5.2" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/* ---------------------------------------------------------------
+   Evidenza statistica: pallini + parola (mai solo colore)
    --------------------------------------------------------------- */
 export const EVIDENCE: Record<Confidence, { level: number; label: string; help: string }> = {
   probabile: { level: 3, label: 'Forte', help: 'Differenza netta, che regge anche tenendo conto di quanti alimenti stai confrontando.' },
@@ -92,7 +153,7 @@ export function Evidence({ confidence }: { confidence: Confidence }) {
           <i key={i} className={i <= e.level ? 'on' : ''} />
         ))}
       </span>
-      Evidenza {e.label}
+      Evidenza {e.label.toLowerCase()}
     </span>
   );
 }
@@ -106,11 +167,9 @@ export function num(v: number): string {
   return v.toLocaleString('it-IT', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 }
 
-/** Intestazione di sezione numerata: "01  SINTOMI". */
-export function Sec({ n, title, aside }: { n: number; title: string; aside?: ReactNode }) {
+export function Sec({ title, aside }: { title: string; aside?: ReactNode }) {
   return (
     <div className="sec">
-      <span className="n">{String(n).padStart(2, '0')}</span>
       <h2>{title}</h2>
       {aside !== undefined && <span className="aside">{aside}</span>}
     </div>

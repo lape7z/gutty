@@ -5,7 +5,7 @@ import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { generateDemo } from '../demo';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
-import { Icon, Sec } from '../ui';
+import { Icon, Mascot, Sec } from '../ui';
 
 function download(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -105,12 +105,12 @@ export function SettingsView() {
   return (
     <>
       <header className="page-title">
-        <span className="mono">Dati solo su questo dispositivo</span>
-        <h1 className="xp">Setup</h1>
-        <p>Niente account, niente server. Il backup lo tieni tu.</p>
+        <div className="kicker">Impostazioni</div>
+        <h1>Il tuo spazio</h1>
+        <p>I tuoi dati restano su questo dispositivo: niente account, niente server.</p>
       </header>
 
-      <Sec n={1} title="Dati" />
+      <Sec title="Dati" />
       <section className="sheet flush">
         <ul className="list">
           <li>
@@ -184,7 +184,7 @@ export function SettingsView() {
         </p>
       )}
 
-      <Sec n={2} title="Sintomi" aside="cosa monitorare" />
+      <Sec title="Sintomi" aside="scegli cosa seguire" />
       <section className="sheet flush">
         <ul className="list">
           {symptoms.map((s) => (
@@ -221,7 +221,7 @@ export function SettingsView() {
         </ul>
       </section>
 
-      <Sec n={3} title="Alimenti" aside={`${foods.filter((f) => !f.archived).length} attivi`} />
+      <Sec title="Alimenti" aside={`${foods.filter((f) => !f.archived).length} attivi`} />
       <section className="sheet">
         <form
           style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
@@ -274,8 +274,10 @@ export function SettingsView() {
       </section>
 
       <footer className="colophon">
-        <span>Gutty · diario ibs</span>
-        <span>Non sostituisce il medico</span>
+        <Mascot face="happy" size={48} still />
+        Gutty · il tuo diario della pancia
+        <br />
+        Non sostituisce il parere del medico.
       </footer>
     </>
   );

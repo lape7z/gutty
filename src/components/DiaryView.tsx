@@ -63,13 +63,13 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
   return (
     <>
       <header className="page-title">
-        <span className="mono">Archivio · {days.length} giornate</span>
-        <h1 className="xp">Diario</h1>
+        <div className="kicker">{days.length} giornate annotate</div>
+        <h1>Il tuo diario</h1>
       </header>
 
       <section className="sheet">
         <div className="month-head">
-          <h2 className="xp">
+          <h2>
             {fmtMonth.format(new Date(y, m - 1, 1))}
           </h2>
           <button className="icon-btn" aria-label="Mese precedente" onClick={() => setMonth(shiftMonth(month, -1))}>
@@ -114,11 +114,11 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
           })}
         </div>
         <div className="legend" aria-hidden>
-          <span>0</span>
+          <span>Nessun sintomo</span>
           {[0, 1, 2, 3, 4, 5].map((lv) => (
             <i key={lv} style={{ background: `var(--v-${lv})` }} />
           ))}
-          <span>10</span>
+          <span>Forti</span>
         </div>
       </section>
 
@@ -126,11 +126,9 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
         <div className="stat">
           <strong>
             {monthEntries.length}
-            <span className="faint" style={{ fontSize: '0.5em' }}>
-              /{elapsed}
-            </span>
+            <small>/{elapsed}</small>
           </strong>
-          <span>giorni segnati</span>
+          <span>giorni annotati</span>
         </div>
         <div className="stat">
           <strong>{formatScore(avg)}</strong>
@@ -144,14 +142,12 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
 
       {days.length > 1 && (
         <>
-          <Sec
-            n={1}
-            title="Andamento"
+          <Sec title="Andamento"
             aside={
               <span className="pills" style={{ margin: 0, padding: 0 }} role="group" aria-label="Periodo">
                 {RANGES.map((r) => (
                   <button key={r} className="pill" aria-pressed={range === r} onClick={() => setRange(r)}>
-                    {r}g
+                    {r} giorni
                   </button>
                 ))}
               </span>
@@ -163,7 +159,7 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
         </>
       )}
 
-      <Sec n={days.length > 1 ? 2 : 1} title="Giornate" aside={monthEntries.length ? `${monthEntries.length} nel mese` : undefined} />
+      <Sec title="Giornate" aside={monthEntries.length ? `${monthEntries.length} nel mese` : undefined} />
       {monthEntries.length === 0 ? (
         <p className="note">
           Nessuna giornata registrata in questo mese.
@@ -195,7 +191,7 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
             })}
           </ul>
           {monthEntries.length > 7 && (
-            <button className="btn link" style={{ margin: '0 0 10px' }} onClick={() => setShowAll((v) => !v)}>
+            <button className="btn link" style={{ margin: '0 0 10px -4px' }} onClick={() => setShowAll((v) => !v)}>
               {showAll ? 'Mostra meno' : `Mostra tutte (${monthEntries.length})`}
             </button>
           )}

@@ -1,18 +1,26 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { addDays, todayISO } from '../date';
 import { db, emptyDay, saveDay } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { formatScore, overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
 import type { DayEntry, Food } from '../types';
-import { Icon, Sec, dayMood, heatLevel, intensityWord } from '../ui';
+import { Icon, Mascot, Sec, dayMood, heatLevel, intensityWord, type Face } from '../ui';
 
 const BRISTOL = ['Grumi duri separati', 'Salsiccia grumosa', 'Salsiccia screpolata', 'Liscia e morbida', 'Pezzi morbidi', 'Poltiglia', 'Liquida'];
 const FALLBACK_FREQUENT = ['caffe', 'pasta-di-grano', 'pane', 'latte', 'pizza', 'cipolla', 'aglio', 'vino'];
 
 const fmtWeekday = new Intl.DateTimeFormat('it-IT', { weekday: 'long' });
 const fmtWeekdayShort = new Intl.DateTimeFormat('it-IT', { weekday: 'short' });
-const fmtMonthShort = new Intl.DateTimeFormat('it-IT', { month: 'short' });
+const fmtDayMonth = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'long' });
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 5) return 'Buonanotte';
+  if (h < 13) return 'Buongiorno';
+  if (h < 18) return 'Buon pomeriggio';
+  return 'Buonasera';
+}
 
 function asDate(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number);
@@ -79,47 +87,42 @@ export function DayView({ date, onDateChange }: Props) {
   const touched = draft.updatedAt > 0;
   const score = touched ? overallScore(draft, symptoms) : undefined;
   const mood = dayMood(score);
-  const d = asDate(date);
   const relative = date === today ? 'Oggi' : date === addDays(today, -1) ? 'Ieri' : null;
-  const stamp = `${fmtWeekdayShort.format(d)} ${d.getDate()} ${fmtMonthShort.format(d)}`.replace('.', '');
+  const weekday = fmtWeekday.format(asDate(date));
 
   return (
     <>
-      <section className="hero" aria-live="polite">
-        <div className="hero-top">
-          <span className="mono">
-            {relative ? `${relative} · ` : ''}
-            {stamp}
-          </span>
-          {relative !== 'Oggi' && (
-            <button className="today-btn" onClick={() => onDateChange(today)}>
-              Vai a oggi →
-            </button>
-          )}
+      <header className="hello">
+        <div>
+          <div className="kicker">{relative === 'Oggi' ? greeting() : relative ?? 'Diario'}</div>
+          <h1>
+            {weekday.charAt(0).toUpperCase() + weekday.slice(1)} {fmtDayMonth.format(asDate(date))}
+          </h1>
         </div>
-        <div className="hero-main">
-          <div>
-            <h1 className="xp">{mood.title}</h1>
-            <p>{mood.line}</p>
-          </div>
-          <div className="score" aria-label={score === undefined ? 'Nessun dato' : `Media sintomi ${formatScore(score)} su 10`}>
-            <strong>{formatScore(score)}</strong>
-            <span>/ 10</span>
-          </div>
-        </div>
-        <div className="hero-meter" aria-hidden>
-          {Array.from({ length: 10 }, (_, i) => (
-            <i key={i} className={score !== undefined && i < Math.round(score) ? 'on' : ''} />
-          ))}
-        </div>
-      </section>
+        {relative !== 'Oggi' && (
+          <button className="today-link" onClick={() => onDateChange(today)}>
+            Oggi
+          </button>
+        )}
+      </header>
 
       <WeekStrip date={date} today={today} scores={scores} onSelect={onDateChange} />
 
-      <Sec n={1} title="Sintomi" aside="da 0 a 10" />
+      <section className="mood" aria-live="polite">
+        <Mascot face={mood.face} />
+        <h2>{mood.title}</h2>
+        <p>{mood.line}</p>
+        {score !== undefined && (
+          <span className="score-chip">
+            <strong>{formatScore(score)}</strong> / 10 di media
+          </span>
+        )}
+      </section>
+
+      <Sec title="Sintomi" aside="da 0 a 10" />
       <section className="sheet">
         {symptoms.map((s) => (
-          <Meter
+          <SoftSlider
             key={s.id}
             id={s.id}
             label={s.name}
@@ -149,13 +152,13 @@ export function DayView({ date, onDateChange }: Props) {
           })}
         </div>
         <div className="bristol-caption">
-          <span>← stitichezza</span>
+          <span>stitichezza</span>
           {draft.bristol ? <strong>{BRISTOL[draft.bristol - 1]}</strong> : <span>facoltativo</span>}
-          <span>diarrea →</span>
+          <span>diarrea</span>
         </div>
       </section>
 
-      <Sec n={2} title="Nel piatto" aside={draft.foods.length ? `${draft.foods.length} voci` : undefined} />
+      <Sec title="Cosa hai mangiato" aside={draft.foods.length ? `${draft.foods.length} selezionati` : undefined} />
       <section className="sheet">
         <FoodPicker
           foods={foods}
@@ -171,11 +174,11 @@ export function DayView({ date, onDateChange }: Props) {
         />
       </section>
 
-      <Sec n={3} title="Testa e sonno" />
+      <Sec title="Come ti senti" />
       <section className="sheet">
-        <FivePoint label="Stress" value={draft.stress} low="zen" high="al limite" onChange={(stress) => update({ stress })} />
-        <div style={{ height: 18 }} />
-        <FivePoint label="Sonno" value={draft.sleep} low="pessimo" high="ottimo" onChange={(sleep) => update({ sleep })} />
+        <FacePicker label="Stress" value={draft.stress} options={STRESS} onChange={(stress) => update({ stress })} />
+        <hr className="divider" />
+        <FacePicker label="Sonno" value={draft.sleep} options={SLEEP} onChange={(sleep) => update({ sleep })} />
         <hr className="divider" />
         <label className="field-label" htmlFor="notes">
           Note <span className="faint">facoltative</span>
@@ -192,10 +195,10 @@ export function DayView({ date, onDateChange }: Props) {
       <p className="saved">
         {touched ? (
           <>
-            <Icon name="check" size={14} /> Salvato sul dispositivo
+            <Icon name="check" size={16} /> Salvato sul tuo dispositivo
           </>
         ) : (
-          'Si salva da solo'
+          'Le modifiche si salvano da sole'
         )}
       </p>
     </>
@@ -218,13 +221,9 @@ function WeekStrip({
   const dow = (asDate(date).getDay() + 6) % 7; // lunedì = 0
   const monday = addDays(date, -dow);
   const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
-  const nextWeek = addDays(date, 7);
 
   return (
     <nav className="week" aria-label="Settimana">
-      <button className="nav" aria-label="Settimana precedente" onClick={() => onSelect(addDays(date, -7))}>
-        <Icon name="left" />
-      </button>
       {days.map((d) => {
         const s = scores.get(d);
         const logged = scores.has(d);
@@ -239,88 +238,85 @@ function WeekStrip({
           >
             <span className="wd">{fmtWeekdayShort.format(asDate(d)).slice(0, 3)}</span>
             <span className="dn">{asDate(d).getDate()}</span>
-            <span
-              className="dot"
-              style={
-                logged && s !== undefined
-                  ? { background: s > 0 ? `var(--v-${heatLevel(s)})` : 'var(--ink-3)' }
-                  : { background: 'transparent', border: '1.5px dashed var(--ink-3)' }
-              }
-            />
+            <span className="dot" style={logged && s !== undefined ? { background: s > 0 ? `var(--v-${heatLevel(s)})` : 'var(--better)' } : undefined} />
           </button>
         );
       })}
-      <button
-        className="nav"
-        aria-label="Settimana successiva"
-        disabled={date >= today}
-        onClick={() => onSelect(nextWeek > today ? today : nextWeek)}
-      >
-        <Icon name="right" />
-      </button>
     </nav>
   );
 }
 
-/** Misuratore a 11 segmenti (0-10): i segmenti accesi si colorano lungo la scala viola. */
-function Meter({ id, label, value, onChange }: { id: string; label: string; value: number; onChange: (v: number) => void }) {
+/** Slider 0-10: la parte piena si scalda lungo la scala lavanda. */
+function SoftSlider({ id, label, value, onChange }: { id: string; label: string; value: number; onChange: (v: number) => void }) {
+  const lv = heatLevel(value);
+  const color = value === 0 ? 'var(--soft-2)' : `var(--v-${lv})`;
   return (
     <div className="symptom">
       <div className="symptom-head">
-        <label id={`lbl-${id}`}>{label}</label>
+        <label htmlFor={`s-${id}`}>{label}</label>
         <span className="val">
-          <strong>{String(value).padStart(2, '0')}</strong>
+          <strong style={{ background: `var(--v-${lv})`, color: `var(--v-ink-${lv})` }}>{value}</strong>
           {intensityWord(value)}
         </span>
       </div>
-      <div className="meter" role="group" aria-labelledby={`lbl-${id}`}>
-        {Array.from({ length: 11 }, (_, i) => {
-          const on = i === 0 ? value === 0 : i <= value;
-          const lv = Math.ceil(i / 2);
-          return (
-            <button
-              key={i}
-              className={`${i === 0 ? 'zero ' : ''}${on ? 'on' : ''}`}
-              style={on && i > 0 ? { background: `var(--v-${lv})`, color: `var(--v-ink-${lv})` } : undefined}
-              aria-label={`${label}: ${i}`}
-              aria-pressed={value === i}
-              onClick={() => onChange(i)}
-            >
-              {i === 0 || i === value ? i : ''}
-            </button>
-          );
-        })}
-      </div>
+      <input
+        id={`s-${id}`}
+        className="soft"
+        type="range"
+        min={0}
+        max={10}
+        step={1}
+        value={value}
+        aria-valuetext={`${value} su 10, ${intensityWord(value)}`}
+        style={{ '--fill': `${value * 10}%`, '--fill-c': color } as CSSProperties}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
     </div>
   );
 }
 
-function FivePoint({
+const STRESS: { face: Face; label: string }[] = [
+  { face: 'zen', label: 'Calmo' },
+  { face: 'happy', label: 'Sereno' },
+  { face: 'ok', label: 'Normale' },
+  { face: 'meh', label: 'Teso' },
+  { face: 'sad', label: 'Stressato' },
+];
+const SLEEP: { face: Face; label: string }[] = [
+  { face: 'sad', label: 'Pessimo' },
+  { face: 'meh', label: 'Scarso' },
+  { face: 'ok', label: 'Normale' },
+  { face: 'happy', label: 'Buono' },
+  { face: 'zen', label: 'Ottimo' },
+];
+
+function FacePicker({
   label,
   value,
-  low,
-  high,
+  options,
   onChange,
 }: {
   label: string;
   value: number | undefined;
-  low: string;
-  high: string;
+  options: { face: Face; label: string }[];
   onChange: (v: number | undefined) => void;
 }) {
   return (
     <div>
-      <div className="field-label">{label}</div>
-      <div className="five" role="group" aria-label={label}>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} aria-pressed={value === n} aria-label={`${label} ${n} su 5`} onClick={() => onChange(value === n ? undefined : n)}>
-            {n}
-          </button>
-        ))}
+      <div className="field-label">
+        {label}
+        <span className="faint">{value ? options[value - 1].label : 'tocca una faccina'}</span>
       </div>
-      <div className="five-caption">
-        <span>{low}</span>
-        <span>{high}</span>
+      <div className="faces" role="group" aria-label={label}>
+        {options.map((o, i) => {
+          const n = i + 1;
+          return (
+            <button key={n} aria-pressed={value === n} aria-label={`${label}: ${o.label}`} onClick={() => onChange(value === n ? undefined : n)}>
+              <Mascot face={o.face} size={38} still />
+              {o.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -429,7 +425,7 @@ function FoodPicker({
   return (
     <>
       {selected.length === 0 ? (
-        <p className="plate-empty">Piatto vuoto. Cerca o tocca gli alimenti qui sotto.</p>
+        <p className="plate-empty">Ancora niente. Cerca un alimento o sceglilo qui sotto.</p>
       ) : (
         <div className="chips" aria-label="Nel piatto">
           {selected.map((id) => (
@@ -443,8 +439,8 @@ function FoodPicker({
         </div>
       )}
       {onCopyYesterday && (
-        <button className="btn link" style={{ marginTop: 10 }} onClick={onCopyYesterday}>
-          + Aggiungi quello di ieri
+        <button className="btn link" style={{ marginTop: 8, marginLeft: -4 }} onClick={onCopyYesterday}>
+          <Icon name="plus" size={16} /> Aggiungi quello di ieri
         </button>
       )}
 
@@ -485,7 +481,7 @@ function FoodPicker({
         <>
           {frequentFoods.length > 0 && (
             <>
-              <div className="sub-label">I soliti</div>
+              <div className="sub-label">I più frequenti</div>
               <div className="chips">
                 {frequentFoods.map((f) => (
                   <button key={f.id} className="chip" aria-pressed={false} onClick={() => onToggle(f.id)}>
@@ -495,7 +491,7 @@ function FoodPicker({
               </div>
             </>
           )}
-          <div className="sub-label">Sfoglia</div>
+          <div className="sub-label">Tutte le categorie</div>
           <div className="pills" role="group" aria-label="Categorie">
             {categories.map((c) => (
               <button key={c} className="pill" aria-pressed={c === category} onClick={() => setCategory(c)}>

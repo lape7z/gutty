@@ -78,11 +78,11 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
               x2={W - PAD.right}
               y1={y(v)}
               y2={y(v)}
-              stroke={v === 0 ? 'var(--edge)' : 'var(--hair)'}
-              strokeWidth={v === 0 ? 2 : 1}
-              strokeDasharray={v === 0 ? undefined : '3 3'}
+              stroke="var(--line)"
+              strokeWidth={1}
+              strokeDasharray={v === 0 ? undefined : '4 4'}
             />
-            <text x={PAD.left - 8} y={y(v) + 3.5} textAnchor="end" fontSize={9} fontFamily="var(--mono)" fontWeight={600} fill="var(--ink-3)">
+            <text x={PAD.left - 8} y={y(v) + 3.5} textAnchor="end" fontSize={9} fontWeight={500} fill="var(--ink-3)">
               {v}
             </text>
           </g>
@@ -94,32 +94,29 @@ export function TrendChart({ points, end, days }: { points: Map<string, TrendPoi
             y={H - 6}
             textAnchor={i === days - 1 ? 'end' : i === 0 ? 'start' : 'middle'}
             fontSize={9}
-            fontFamily="var(--mono)"
-            fontWeight={600}
+           
+            fontWeight={500}
             fill="var(--ink-3)"
           >
             {formatShort(p.date)}
           </text>
         ))}
         {hover !== null && (
-          <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--ink)" strokeWidth={1.5} strokeDasharray="3 3" />
+          <line x1={x(hover)} x2={x(hover)} y1={PAD.top} y2={PAD.top + innerH} stroke="var(--primary)" strokeOpacity={0.4} strokeWidth={1.5} />
         )}
         {segments.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinejoin="round" />
+          <path key={i} d={d} fill="none" stroke="var(--primary)" strokeOpacity={0.55} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         ))}
         {series.map((p, i) => {
           if (p.value === undefined) return null;
-          const size = hover === i ? 10 : days > 45 ? 5 : 7;
           return (
-            <rect
+            <circle
               key={p.date}
-              x={x(i) - size / 2}
-              y={y(p.value) - size / 2}
-              width={size}
-              height={size}
-              rx={1.5}
-              fill={p.value > 0 ? `var(--v-${heatLevel(p.value)})` : 'var(--card)'}
-              stroke="var(--edge)"
+              cx={x(i)}
+              cy={y(p.value)}
+              r={hover === i ? 5.5 : days > 45 ? 2.8 : 3.8}
+              fill={p.value > 0 ? `var(--v-${heatLevel(p.value)})` : 'var(--better)'}
+              stroke="var(--card)"
               strokeWidth={1.5}
             />
           );
