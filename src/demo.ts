@@ -6,6 +6,7 @@ import type { DayEntry, Meal, MomentLog } from './types';
 const COMMON = new Set(['caffe', 'pasta-di-grano', 'pane', 'riso', 'formaggi-stagionati']);
 const BREAKFAST = new Set(['caffe', 'latte', 'yogurt', 'pane', 'te', 'succhi-di-frutta', 'dolci', 'mela']);
 const MEALS: Meal[] = ['colazione', 'pranzo', 'cena', 'fuoripasto'];
+const ALCOHOL = new Set(['vino', 'birra', 'superalcolici']);
 
 /**
  * Genera un diario finto con trigger nascosti, per provare l'analisi:
@@ -13,9 +14,12 @@ const MEALS: Meal[] = ['colazione', 'pranzo', 'cena', 'fuoripasto'];
  * - latte → gonfiore e aria nel pomeriggio
  * - stress alto → dolore la sera
  * - cena abbondante o tardiva → gonfiore la sera e la notte
+ * - 3 o più bicchieri di alcol → fastidio la notte e urgenza la mattina dopo (1-2 bicchieri non pesano)
  */
 export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[] {
   const rand = mulberry32(seed);
+  // Generatore separato per l'alcol, così il resto del diario resta identico a prima.
+  const drinkRand = mulberry32(seed + 1);
   const start = addDays(end, -(days - 1));
   const pick = <T,>(arr: T[]) => arr[Math.floor(rand() * arr.length)];
 
@@ -27,9 +31,11 @@ export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[
       const meal = BREAKFAST.has(f.id) && rand() < 0.6 ? 'colazione' : pick(MEALS.slice(1));
       meals[meal].push(f.id);
     }
+    const drinking = MEALS.some((m) => meals[m].some((f) => ALCOHOL.has(f)));
     return {
       date,
       meals,
+      drinks: drinking ? 1 + Math.floor(drinkRand() * drinkRand() * 6) : 0,
       stress: 1 + Math.floor(rand() * 5),
       sleep: 1 + Math.floor(rand() * 5),
       bigDinner: rand() < 0.2,
@@ -52,6 +58,10 @@ export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[
     const sera = new Set<string>();
 
     let mLevel = noise();
+    if ((prev?.drinks ?? 0) >= 3) {
+      mLevel += 1.6;
+      mattina.add('urgenza');
+    }
     if (onionAt(prev, 'cena')) {
       mLevel += 2.4;
       mattina.add('dolore').add('urgenza');
@@ -76,6 +86,10 @@ export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[
       sLevel += 1.3;
       sera.add('dolore');
     }
+    if (day.drinks >= 3) {
+      sLevel += 1;
+      sera.add('gonfiore');
+    }
     if (day.bigDinner) {
       sLevel += 1.3;
       sera.add('gonfiore');
@@ -91,6 +105,7 @@ export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[
       stress: day.stress,
       sleep: day.sleep,
       bigDinner: day.bigDinner || undefined,
+      drinks: day.drinks,
       symptoms: {},
       moments: {
         mattina: moment(mLevel, mattina),

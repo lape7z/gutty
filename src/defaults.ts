@@ -14,6 +14,7 @@ const CATALOG: Record<string, string[]> = {
   Verdure: ['Cipolla', 'Aglio', 'Legumi', 'Cavoli e broccoli', 'Funghi', 'Carciofi e asparagi', 'Verdure crude'],
   Frutta: ['Mela', 'Pera', 'Anguria e frutta estiva', 'Frutta secca', 'Frutta a guscio'],
   Bevande: ['Caffè', 'Tè', 'Bevande gassate', 'Vino', 'Birra', 'Superalcolici', 'Succhi di frutta'],
+  Piatti: [],
   Altro: [
     'Fritti',
     'Piccante',
@@ -42,9 +43,11 @@ export const DEFAULT_FOODS: Food[] = Object.entries(CATALOG).flatMap(([category,
 
 export const FOOD_CATEGORIES = Object.keys(CATALOG);
 
-/** Fattori di stile di vita (stress, sonno, cena), analizzati come gli alimenti. */
+/** Fattori di stile di vita (stress, sonno, cena, quantità di alcol), analizzati come gli alimenti. */
 export const LIFESTYLE_FACTORS = {
   'stress-alto': 'Stress alto',
   'sonno-scarso': 'Dormito male',
   'cena-pesante': 'Cena abbondante o tardiva',
+  'alcol-1-2': '1-2 bicchieri di alcol',
+  'alcol-3-piu': '3 o più bicchieri di alcol',
 } as const;

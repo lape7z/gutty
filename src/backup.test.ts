@@ -1,7 +1,11 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { backupDue, restoreSnapshot, snapshotInfo, takeSnapshot } from './backup';
-import { db, replaceDays, saveDay, wipeAll } from './db';
+import Dexie from 'dexie';
+import { analyze, dayScore } from './analysis';
+import { db, exportBackup, importBackup, replaceDays, saveDay, wipeAll } from './db';
+import { drinksOf, entriesByGroup, groupsOf } from './groups';
+import { byDrinks } from './stats';
 import { generateDemo } from './demo';
 import type { DayEntry } from './types';
 
@@ -31,6 +35,62 @@ describe('i dati sopravvivono agli aggiornamenti', () => {
     db.close();
     await db.open();
     expect((await db.days.toArray()).map((d) => d.date)).toEqual(['2026-09-01', '2026-09-02']);
+  });
+});
+
+describe('compatibilità con i diari già inseriti', () => {
+  // Una giornata come la salvavano le versioni precedenti: niente bicchieri, cibi senza gruppi,
+  // e persino i vecchi dettagli 0-10 senza momenti né pasti.
+  const oldDays: DayEntry[] = [
+    { date: '2026-08-01', foods: ['pane', 'vino'], symptoms: { dolore: 5 }, stress: 3, updatedAt: 1 },
+    { date: '2026-08-02', foods: ['focaccia'], symptoms: {}, moments: { mattina: { level: 2, symptoms: ['gonfiore'] } }, updatedAt: 2 },
+  ];
+  const oldFoods = [
+    { id: 'pane', name: 'Pane', category: 'Cereali e farinacei' },
+    { id: 'vino', name: 'Vino', category: 'Bevande' },
+    { id: 'focaccia', name: 'Focaccia', category: 'Altro' },
+  ];
+
+  it('apre il database scritto dalla versione precedente senza perdere nulla', async () => {
+    db.close();
+    // Lo stesso database "gutty" scritto da un'istanza separata, come farebbe la vecchia app.
+    const old = new Dexie('gutty');
+    old.version(1).stores({ days: 'date', foods: 'id, category', symptoms: 'id' });
+    await old.open();
+    await old.table('days').bulkPut(oldDays);
+    await old.table('foods').bulkPut(oldFoods);
+    old.close();
+
+    await db.open();
+    const days = await db.days.toArray();
+    expect(days).toEqual(oldDays);
+    const foods = await db.foods.bulkGet(['pane', 'vino', 'focaccia']);
+    expect(foods).toEqual(oldFoods);
+
+    // E la nuova versione sa usarli: gruppi dedotti dal nome, nessun bicchiere inventato.
+    expect(groupsOf(foods[2]!)).toContain('g-frumento');
+    const byId = new Map(foods.map((f) => [f!.id, f!]));
+    expect(drinksOf(days[0], byId)).toBeUndefined(); // vino senza numero di bicchieri: non lo indoviniamo
+    expect(drinksOf(days[1], byId)).toBe(0);
+    expect(dayScore(days[0], ['dolore'], { kind: 'overall' })).toBe(2);
+    expect(() => analyze(entriesByGroup(days, foods as never), { symptomIds: ['dolore', 'gonfiore'], target: { kind: 'overall' }, lag: { from: 0, to: 0, timed: true } })).not.toThrow();
+    expect(byDrinks(days, days, ['dolore', 'gonfiore'], foods as never)).toHaveLength(6);
+  });
+
+  it('i nuovi campi si salvano e tornano anche dal backup', async () => {
+    await db.foods.bulkPut(oldFoods);
+    await saveDay({ ...oldDays[1], drinks: 3 });
+    await db.foods.update('focaccia', { groups: ['g-frumento', 'g-grassi'] });
+    const backup = await exportBackup();
+    await wipeAll();
+    await importBackup(backup);
+    expect((await db.days.get('2026-08-02'))?.drinks).toBe(3);
+    expect((await db.foods.get('focaccia'))?.groups).toEqual(['g-frumento', 'g-grassi']);
+  });
+
+  it('un backup fatto con la versione precedente si importa ancora', async () => {
+    await importBackup({ app: 'gutty', version: 1, exportedAt: '2026-08-03T10:00:00Z', days: oldDays, foods: oldFoods, symptoms: [] } as never);
+    expect((await db.days.toArray()).map((d) => d.date)).toEqual(['2026-08-01', '2026-08-02']);
   });
 });
 

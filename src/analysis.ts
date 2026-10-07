@@ -109,7 +109,15 @@ export function factorsOf(entry: DayEntry): string[] {
   if (entry.stress !== undefined && entry.stress >= 4) out.push('stress-alto');
   if (entry.sleep !== undefined && entry.sleep <= 2) out.push('sonno-scarso');
   if (entry.bigDinner) out.push('cena-pesante');
+  // La quantità di alcol conta più del tipo: due fasce, così si vede se "tanto" è diverso da "poco".
+  if (entry.drinks !== undefined && entry.drinks >= 3) out.push('alcol-3-piu');
+  else if (entry.drinks !== undefined && entry.drinks >= 1) out.push('alcol-1-2');
   return out;
+}
+
+/** Sintomi nelle 24 ore dopo una giornata (vedi followUpScore), per i grafici. */
+export function followUp(day: DayEntry, next: DayEntry | undefined, symptomIds: string[]): number | undefined {
+  return followUpScore(day, next, { symptomIds, target: { kind: 'overall' }, lag: { from: 0, to: 0, timed: true } });
 }
 
 /**

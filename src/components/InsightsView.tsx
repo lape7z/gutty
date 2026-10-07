@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { analyze, type FactorResult, type LagWindow, type Target } from '../analysis';
 import { LIFESTYLE_FACTORS } from '../defaults';
-import { useActiveSymptoms, useDays, useFactorNames } from '../hooks';
+import { entriesByGroup } from '../groups';
+import { useActiveSymptoms, useDays, useFactorNames, useFoods } from '../hooks';
 import { EVIDENCE, Evidence, Sec, levelWord, num, signed } from '../ui';
 import { EffectChart } from './EffectChart';
 
@@ -37,6 +38,16 @@ function exposure(id: string, name: string, lag: LagKey): string {
       '2': 'Due giorni dopo una cena abbondante o tardiva',
     }[lag];
   }
+  if (id === 'alcol-1-2' || id === 'alcol-3-piu') {
+    const q = id === 'alcol-1-2' ? '1 o 2 bicchieri di alcol' : '3 o più bicchieri di alcol';
+    return {
+      '24h': `Nelle 24 ore dopo ${q}`,
+      '0': `Nei giorni con ${q}`,
+      '1': `Il giorno dopo ${q}`,
+      '01': `Quando hai bevuto ${q} quel giorno o il precedente`,
+      '2': `Due giorni dopo ${q}`,
+    }[lag];
+  }
   if (id === 'sonno-scarso') {
     return {
       '24h': 'Nei giorni in cui hai dormito male',
@@ -47,6 +58,15 @@ function exposure(id: string, name: string, lag: LagKey): string {
     }[lag];
   }
   const n = name.toLowerCase();
+  if (id.startsWith('g-')) {
+    return {
+      '24h': `Nelle 24 ore dopo cibi del gruppo «${n}»`,
+      '0': `Nei giorni con cibi del gruppo «${n}»`,
+      '1': `Il giorno dopo cibi del gruppo «${n}»`,
+      '01': `Quando hai mangiato cibi del gruppo «${n}» il giorno stesso o quello prima`,
+      '2': `Due giorni dopo cibi del gruppo «${n}»`,
+    }[lag];
+  }
   return {
     '24h': `Nelle 24 ore dopo aver consumato ${n}`,
     '0': `Nei giorni in cui consumi ${n}`,
@@ -59,7 +79,10 @@ function exposure(id: string, name: string, lag: LagKey): string {
 export function InsightsView() {
   const days = useDays();
   const symptoms = useActiveSymptoms();
+  const foods = useFoods();
   const nameOf = useFactorNames();
+  // Per gruppi: focaccia, pane e pasta contano insieme come "Frumento e glutine".
+  const [byGroup, setByGroup] = useState(false);
   const [targetKey, setTargetKey] = useState('overall');
   const [lagKey, setLagKey] = useState<LagKey>('24h');
   const [showWeak, setShowWeak] = useState(false);
@@ -69,8 +92,8 @@ export function InsightsView() {
     if (!days) return null;
     const target: Target = targetKey === 'overall' ? { kind: 'overall' } : { kind: 'symptom', id: targetKey };
     const lag = LAGS.find((l) => l.key === lagKey)!.lag;
-    return analyze(days, { symptomIds: symptoms.map((s) => s.id), target, lag });
-  }, [days, symptoms, targetKey, lagKey]);
+    return analyze(byGroup ? entriesByGroup(days, foods) : days, { symptomIds: symptoms.map((s) => s.id), target, lag });
+  }, [days, foods, symptoms, targetKey, lagKey, byGroup]);
 
   if (!days || !res) return null;
 
@@ -116,6 +139,23 @@ export function InsightsView() {
             </button>
           ))}
         </div>
+        <div className="field-label" style={{ marginTop: 16 }}>
+          Confronta
+        </div>
+        <div className="pills" role="group" aria-label="Cosa confrontare">
+          <button className="pill" aria-pressed={!byGroup} onClick={() => setByGroup(false)}>
+            Singoli alimenti
+          </button>
+          <button className="pill" aria-pressed={byGroup} onClick={() => setByGroup(true)}>
+            Gruppi di alimenti
+          </button>
+        </div>
+        {byGroup && (
+          <p className="faint small" style={{ margin: '8px 2px 0' }}>
+            Cibi simili contano insieme (pane, focaccia e pasta → frumento) e i piatti composti valgono per ciò che contengono (pasta al ragù →
+            frumento, pomodoro, carne, cipolla). Più giornate per gruppo, confronti più solidi.
+          </p>
+        )}
         <div className="field-label" style={{ marginTop: 16 }}>
           Quando compaiono
         </div>

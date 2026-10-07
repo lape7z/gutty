@@ -5,6 +5,8 @@ import { db, emptyDay, saveDay } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
 import { backupDue, saveBackup, snoozeBackup } from '../backup';
+import { isAlcoholic, suggestCategory, suggestGroups } from '../groups';
+import { FoodGroupEditor, groupSummary } from './FoodGroups';
 import { LEVELS, MEALS, MOMENT_INFO, mealNow, mealsOf, momentNow, withMeals } from '../day';
 import type { DayEntry, Food, Meal, Moment, MomentLog } from '../types';
 import { Icon, Mascot, Sec, dayMood, heatLevel, levelWord, type Face } from '../ui';
@@ -75,25 +77,37 @@ export function DayView({ date, onDateChange }: Props) {
   };
 
   const meals = mealsOf(draft);
-  const setMealFoods = (m: Meal, list: string[]) => update(withMeals({ ...meals, [m]: list }));
+  // Quando si segna un alcolico e i bicchieri sono ancora a zero, si parte da 1: basta correggere.
+  const setMealFoods = (m: Meal, list: string[], added?: Food) => {
+    const patch: Partial<DayEntry> = withMeals({ ...meals, [m]: list });
+    if (!draft.drinks && isAlcoholic(added)) patch.drinks = 1;
+    update(patch);
+  };
 
   const toggleFood = (id: string) => {
     const list = meals[meal];
-    setMealFoods(meal, list.includes(id) ? list.filter((f) => f !== id) : [...list, id]);
+    if (list.includes(id)) setMealFoods(meal, list.filter((f) => f !== id));
+    else setMealFoods(meal, [...list, id], foods.find((f) => f.id === id));
   };
 
-  const addFood = async (name: string) => {
+  // Un cibo nuovo prende categoria e gruppi dal nome (focaccia → Frumento, pasta al ragù → Piatti).
+  // I gruppi non vengono salvati finché non li si modifica: così migliorano con le regole future.
+  const addFood = async (name: string): Promise<string | undefined> => {
     const clean = name.trim();
     if (!clean) return;
     let id = slugify(clean) || `alimento-${Date.now()}`;
     const existing = foods.find((f) => f.id === id || f.name.toLowerCase() === clean.toLowerCase());
+    let food: Food;
     if (existing) {
       id = existing.id;
+      food = existing;
       if (existing.archived) await db.foods.update(id, { archived: false });
     } else {
-      await db.foods.add({ id, name: clean, category: 'Altro' });
+      food = { id, name: clean, category: suggestCategory(suggestGroups(clean)) };
+      await db.foods.add(food);
     }
-    if (!meals[meal].includes(id)) setMealFoods(meal, [...meals[meal], id]);
+    if (!meals[meal].includes(id)) setMealFoods(meal, [...meals[meal], id], food);
+    return existing ? undefined : id;
   };
 
   const setMoment = (m: Moment, log: MomentLog | undefined) => {
@@ -290,6 +304,8 @@ export function DayView({ date, onDateChange }: Props) {
               : undefined
           }
         />
+        <hr className="divider" />
+        <DrinksStepper value={draft.drinks} onChange={(drinks) => update({ drinks })} />
       </section>
 
       <Sec title="Come ti senti" />
@@ -557,10 +573,12 @@ function FoodPicker({
   mealPhrase: string;
   frequent: string[];
   onToggle: (id: string) => void;
-  onAdd: (name: string) => Promise<void>;
+  onAdd: (name: string) => Promise<string | undefined>;
   onCopyYesterday?: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const [added, setAdded] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const [category, setCategory] = useState(FOOD_CATEGORIES[0]);
   const byId = useMemo(() => new Map(foods.map((f) => [f.id, f])), [foods]);
   const active = foods.filter((f) => !f.archived);
@@ -579,7 +597,9 @@ function FoodPicker({
     if (results.length === 1) {
       if (!selected.includes(results[0].id)) onToggle(results[0].id);
     } else if (!exact) {
-      await onAdd(search);
+      const id = await onAdd(search);
+      setAdded(id ?? null);
+      setEditing(false);
     } else {
       return;
     }
@@ -601,6 +621,9 @@ function FoodPicker({
             </button>
           ))}
         </div>
+      )}
+      {added && byId.get(added) && (
+        <NewFoodCard food={byId.get(added)!} foods={foods} editing={editing} onEdit={() => setEditing(true)} onClose={() => setAdded(null)} />
       )}
       {onCopyYesterday && (
         <button className="btn link" style={{ marginTop: 8, marginLeft: -4 }} onClick={onCopyYesterday}>
@@ -675,5 +698,58 @@ function FoodPicker({
         </>
       )}
     </>
+  );
+}
+
+/** Dopo aver creato un cibo: mostra in che gruppi è stato messo, con la possibilità di correggere. */
+function NewFoodCard({ food, foods, editing, onEdit, onClose }: { food: Food; foods: Food[]; editing: boolean; onEdit: () => void; onClose: () => void }) {
+  const categories = [...new Set(foods.map((f) => f.category))];
+  return (
+    <div className="new-food" role="status">
+      <div className="nf-head">
+        <div>
+          <strong>“{food.name}” aggiunto</strong>
+          {!editing && (
+            <div className="faint small">
+              {food.category} · {groupSummary(food)}
+            </div>
+          )}
+        </div>
+        <button className="icon-btn" aria-label="Chiudi" onClick={onClose}>
+          <Icon name="x" size={16} />
+        </button>
+      </div>
+      {editing ? (
+        <FoodGroupEditor food={food} categories={categories} onDone={onClose} />
+      ) : (
+        <button className="btn link" style={{ marginLeft: -4 }} onClick={onEdit}>
+          Correggi i gruppi
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Quanti bicchieri di alcol nella giornata: conta la quantità, non solo il tipo. */
+function DrinksStepper({ value, onChange }: { value: number | undefined; onChange: (v: number | undefined) => void }) {
+  const n = value ?? 0;
+  return (
+    <div className="drinks">
+      <div>
+        <div className="field-label" style={{ margin: 0 }}>
+          Bicchieri di alcol
+        </div>
+        <div className="hint">1 = una birra piccola, un calice di vino o un cicchetto</div>
+      </div>
+      <div className="stepper" role="group" aria-label="Bicchieri di alcol">
+        <button aria-label="Un bicchiere in meno" disabled={n === 0} onClick={() => onChange(n - 1)}>
+          −
+        </button>
+        <output aria-live="polite">{value === undefined ? '0' : value}</output>
+        <button aria-label="Un bicchiere in più" disabled={n >= 15} onClick={() => onChange(n + 1)}>
+          +
+        </button>
+      </div>
+    </div>
   );
 }

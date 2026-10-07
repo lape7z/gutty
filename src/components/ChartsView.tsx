@@ -2,8 +2,8 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { MOMENTS } from '../analysis';
 import { addDays, daysBetween, todayISO } from '../date';
 import { MOMENT_INFO } from '../day';
-import { overallScore, useActiveSymptoms, useDays, useFactorNames } from '../hooks';
-import { bristolCounts, byLevel, byMoment, byWeekday, inRange, symptomFrequency, type Bucket } from '../stats';
+import { overallScore, useActiveSymptoms, useDays, useFactorNames, useFoods } from '../hooks';
+import { bristolCounts, byDrinks, byLevel, byMoment, byWeekday, inRange, symptomFrequency, type Bucket } from '../stats';
 import { levelWord, num } from '../ui';
 import { ColumnChart, RowChart, type BarItem } from './Bars';
 import { TrendChart, type TrendPoint } from './TrendChart';
@@ -38,6 +38,12 @@ function worstOf(buckets: Bucket[], minN = 2): number | undefined {
   return ok[0].b.mean! - ok[ok.length - 1].b.mean! >= NOTABLE ? ok[0].i : undefined;
 }
 
+/** Media complessiva di più gruppi, pesata sul numero di giornate di ciascuno. */
+function pooled(b: Bucket[], idx: number[]): number | undefined {
+  const n = idx.reduce((a, i) => a + (b[i].mean === undefined ? 0 : b[i].n), 0);
+  return n ? idx.reduce((a, i) => a + (b[i].mean === undefined ? 0 : b[i].mean! * b[i].n), 0) / n : undefined;
+}
+
 function Card({ title, takeaway, children, foot }: { title: string; takeaway: ReactNode; children: ReactNode; foot?: ReactNode }) {
   return (
     <section className="sheet chart-card">
@@ -53,6 +59,7 @@ export function ChartsView() {
   const days = useDays();
   const symptoms = useActiveSymptoms();
   const nameOf = useFactorNames();
+  const foods = useFoods();
   const [rangeKey, setRangeKey] = useState('30');
   const today = todayISO();
   const range = RANGES.find((r) => r.key === rangeKey)!;
@@ -142,15 +149,28 @@ export function ChartsView() {
   // --- Stress e sonno
   const stress = byLevel(entries, ids, 'stress');
   const sleep = byLevel(entries, ids, 'sleep');
-  const compare = (b: Bucket[], lowIdx: number[], highIdx: number[]) => {
-    const pick = (idx: number[]) => {
-      const vals = idx.flatMap((i) => (b[i].mean === undefined ? [] : Array(b[i].n).fill(b[i].mean)));
-      return vals.length ? vals.reduce((a, v) => a + v, 0) / vals.length : undefined;
-    };
-    return { low: pick(lowIdx), high: pick(highIdx) };
-  };
+  const compare = (b: Bucket[], lowIdx: number[], highIdx: number[]) => ({ low: pooled(b, lowIdx), high: pooled(b, highIdx) });
   const st = compare(stress, [0, 1], [3, 4]);
   const sl = compare(sleep, [0, 1], [3, 4]);
+
+  // --- Alcol: 0, 1-2 e 3 o più bicchieri, sintomi nelle 24 ore dopo
+  const drinks = byDrinks(entries, days ?? [], ids, foods);
+  const al = { none: pooled(drinks, [0]), few: pooled(drinks, [1, 2]), many: pooled(drinks, [3, 4, 5]) };
+  const drinkDays = drinks.slice(1).reduce((a, b) => a + b.n, 0);
+  const drinksText =
+    drinkDays === 0
+      ? 'Ancora nessuna giornata con bicchieri di alcol segnati in questo periodo.'
+      : al.none === undefined
+        ? 'Servono anche giornate senza alcol per fare il confronto.'
+        : al.many !== undefined && al.many - al.none >= NOTABLE
+          ? `Con 3 o più bicchieri i sintomi nelle 24 ore dopo sono in media ${num(al.many)}, senza alcol ${num(al.none)}${
+              al.few !== undefined ? `; con 1-2 bicchieri ${num(al.few)}` : ''
+            }.`
+          : al.few !== undefined && al.few - al.none >= NOTABLE
+            ? `Già con 1-2 bicchieri i sintomi nelle 24 ore dopo salgono: in media ${num(al.few)} contro ${num(al.none)} senza alcol.`
+            : drinkDays < 4
+              ? 'Ancora poche giornate con alcol per capire se la quantità conta.'
+              : 'Per ora la quantità di alcol non sembra cambiare molto i sintomi.';
 
   return (
     <>
@@ -228,6 +248,25 @@ export function ChartsView() {
           }))}
           max={Math.max(1, ...bristol)}
           format={(v) => String(v)}
+        />
+      </Card>
+
+      <Card
+        title="Alcol"
+        takeaway={drinksText}
+        foot="Sintomi nelle 24 ore dopo, da 0 (bene) a 4 (malissimo). Le giornate senza alcolici segnati contano come 0 bicchieri."
+      >
+        <ColumnChart
+          label="Sintomi per numero di bicchieri di alcol"
+          caption={['nessuno', '5 o più']}
+          items={levelItems(
+            ['0', '1', '2', '3', '4', '5+'],
+            drinks,
+            'giornate',
+            ['Nessun bicchiere', '1 bicchiere', '2 bicchieri', '3 bicchieri', '4 bicchieri', '5 o più bicchieri'],
+          )}
+          max={4}
+          format={num}
         />
       </Card>
 

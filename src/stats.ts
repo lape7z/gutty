@@ -1,6 +1,7 @@
-import { MOMENTS, dayScore } from './analysis';
+import { MOMENTS, dayScore, followUp } from './analysis';
 import { addDays } from './date';
-import type { DayEntry, Moment } from './types';
+import { drinksOf } from './groups';
+import type { DayEntry, Food, Moment } from './types';
 
 /** Media e numero di valori: `mean` è undefined quando non c'è nessun dato. */
 export interface Bucket {
@@ -83,6 +84,24 @@ export function byLevel(entries: DayEntry[], symptomIds: string[], field: 'stres
     const s = dayScore(e, symptomIds, { kind: 'overall' });
     if (lv === undefined || s === undefined) continue;
     groups[lv - 1].push(s);
+  }
+  return groups.map(bucket);
+}
+
+/**
+ * Sintomi nelle 24 ore dopo, per numero di bicchieri di alcol: indice 0-4 = bicchieri, 5 = cinque o più.
+ * L'alcol si fa sentire soprattutto la notte e il mattino dopo, per questo si usa la finestra delle 24 ore.
+ */
+export function byDrinks(entries: DayEntry[], all: DayEntry[], symptomIds: string[], foods: Food[]): Bucket[] {
+  const foodById = new Map(foods.map((f) => [f.id, f]));
+  const byDate = new Map(all.map((e) => [e.date, e]));
+  const groups: number[][] = Array.from({ length: 6 }, () => []);
+  for (const e of entries) {
+    const n = drinksOf(e, foodById);
+    if (n === undefined) continue;
+    const s = followUp(e, byDate.get(addDays(e.date, 1)), symptomIds);
+    if (s === undefined) continue;
+    groups[Math.min(5, n)].push(s);
   }
   return groups.map(bucket);
 }

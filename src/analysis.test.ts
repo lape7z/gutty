@@ -3,6 +3,7 @@ import { analyze, benjaminiHochberg, buildObservations, dayScore, mulberry32 } f
 import { addDays, daysBetween } from './date';
 import { DEFAULT_FOODS, DEFAULT_SYMPTOMS } from './defaults';
 import { generateDemo } from './demo';
+import { entriesByGroup } from './groups';
 import type { DayEntry } from './types';
 
 const symptomIds = DEFAULT_SYMPTOMS.map((s) => s.id);
@@ -106,10 +107,12 @@ describe('finestra delle 24 ore', () => {
 });
 
 describe('analyze sui dati demo', () => {
-  it('trova i quattro trigger nascosti nelle 24 ore', () => {
+  it('trova i trigger nascosti nelle 24 ore, anche la quantità di alcol', () => {
     const res = analyze(demo, { symptomIds, target: { kind: 'overall' }, lag: timed });
     const strong = res.results.filter((r) => r.confidence === 'probabile').map((r) => r.id);
-    expect(strong.sort()).toEqual(['cena-pesante', 'cipolla', 'latte', 'stress-alto']);
+    // La birra compare perché è il modo più comune di bere 3 o più bicchieri: è un indizio vero, non un errore.
+    expect(strong.sort()).toEqual(['alcol-3-piu', 'birra', 'cena-pesante', 'cipolla', 'latte', 'stress-alto']);
+    expect(res.results.find((r) => r.id === 'alcol-1-2')?.confidence ?? 'nessuna').toBe('nessuna');
     expect(res.results.find((r) => r.id === 'cipolla')!.netEffect).toBeGreaterThan(0.5);
   });
 
@@ -142,5 +145,26 @@ describe('analyze su dati puramente casuali', () => {
       falsePositives += res.results.filter((r) => r.confidence === 'probabile').length;
     }
     expect(falsePositives).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('analisi per gruppi', () => {
+  const day = (date: string, extra: Partial<DayEntry> = {}): DayEntry => ({ date, foods: [], symptoms: {}, updatedAt: 0, ...extra });
+
+  it('cibi diversi dello stesso gruppo si sommano', () => {
+    const foods = [
+      { id: 'pane', name: 'Pane', category: 'Cereali' },
+      { id: 'focaccia', name: 'Focaccia', category: 'Altro' },
+      { id: 'pasta-al-ragu', name: 'Pasta al ragù', category: 'Piatti' },
+    ];
+    const grouped = entriesByGroup([day('2026-01-01', { foods: ['focaccia', 'pane'] }), day('2026-01-02', { foods: ['pasta-al-ragu'] })], foods);
+    expect(grouped[0].foods).toEqual(['g-frumento']);
+    expect(grouped[1].foods).toEqual(expect.arrayContaining(['g-frumento', 'g-pomodoro', 'g-carne', 'g-cipolla-aglio']));
+  });
+
+  it('sui dati demo trova cipolla e latticini come gruppi', () => {
+    const res = analyze(entriesByGroup(demo, DEFAULT_FOODS), { symptomIds, target: { kind: 'overall' }, lag: timed });
+    const strong = res.results.filter((r) => r.confidence === 'probabile').map((r) => r.id);
+    expect(strong).toEqual(expect.arrayContaining(['g-cipolla-aglio', 'g-lattosio', 'alcol-3-piu']));
   });
 });

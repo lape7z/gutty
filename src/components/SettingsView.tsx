@@ -6,6 +6,8 @@ import { lastBackupAt, restoreSnapshot, saveBackup, snapshotInfo, takeSnapshot }
 import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
 import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { generateDemo } from '../demo';
+import { suggestCategory, suggestGroups } from '../groups';
+import { FoodGroupEditor, groupSummary } from './FoodGroups';
 import { LEVELS, MEALS, MOMENT_INFO, mealsOf } from '../day';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
 import type { DayEntry, Moment } from '../types';
@@ -61,7 +63,8 @@ export function SettingsView() {
     }
   };
   const [newFood, setNewFood] = useState('');
-  const [newFoodCat, setNewFoodCat] = useState(FOOD_CATEGORIES[0]);
+  const [newFoodCat, setNewFoodCat] = useState(''); // '' = scelta in automatico dal nome
+  const [openFood, setOpenFood] = useState<string | null>(null);
   const [newSymptom, setNewSymptom] = useState('');
   const [browseCat, setBrowseCat] = useState(FOOD_CATEGORIES[0]);
 
@@ -98,6 +101,7 @@ export function SettingsView() {
       'sonno',
       ...MEALS.map((m) => m.label),
       'cena abbondante o tardiva',
+      'bicchieri di alcol',
       'note',
     ];
     const rows = days
@@ -113,6 +117,7 @@ export function SettingsView() {
           d.sleep,
           ...MEALS.map((m) => meals[m.id].map(nameOf).join(', ')),
           d.bigDinner ? 'sì' : '',
+          d.drinks,
           d.notes,
         ];
       });
@@ -169,13 +174,17 @@ export function SettingsView() {
     const name = newFood.trim();
     if (!name) return;
     const id = slugify(name) || `alimento-${Date.now()}`;
-    if (await db.foods.get(id)) {
-      await db.foods.update(id, { archived: false, category: newFoodCat });
+    const existing = await db.foods.get(id);
+    const category = newFoodCat || existing?.category || suggestCategory(suggestGroups(name));
+    if (existing) {
+      await db.foods.update(id, { archived: false, category });
     } else {
-      await db.foods.add({ id, name, category: newFoodCat });
+      await db.foods.add({ id, name, category });
     }
     setNewFood('');
-    setBrowseCat(newFoodCat);
+    setNewFoodCat('');
+    setBrowseCat(category);
+    setOpenFood(id);
   };
 
   const addSymptom = async () => {
@@ -422,6 +431,9 @@ export function SettingsView() {
           <label className="field" style={{ flex: '0 1 170px' }}>
             <span className="sr-only">Categoria</span>
             <select value={newFoodCat} onChange={(e) => setNewFoodCat(e.target.value)}>
+              <option value="">
+                {newFood.trim() ? `Auto: ${suggestCategory(suggestGroups(newFood))}` : 'Categoria automatica'}
+              </option>
               {categories.map((c) => (
                 <option key={c}>{c}</option>
               ))}
@@ -433,6 +445,11 @@ export function SettingsView() {
             </button>
           )}
         </form>
+        {newFood.trim() && <p className="faint small" style={{ margin: '8px 2px 0' }}>Contiene: {groupSummary({ name: newFood })}</p>}
+        <p className="faint small" style={{ margin: '12px 2px 0' }}>
+          Ogni alimento appartiene a uno o più gruppi (es. focaccia e pane → Frumento e glutine): così l’analisi li conta insieme. Tocca un
+          alimento per vedere o correggere i suoi gruppi.
+        </p>
         <div className="pills" style={{ marginTop: 16 }} role="group" aria-label="Categoria">
           {categories.map((c) => (
             <button key={c} className="pill" aria-pressed={browseCat === c} onClick={() => setBrowseCat(c)}>
@@ -444,15 +461,21 @@ export function SettingsView() {
           {foods
             .filter((f) => f.category === browseCat)
             .map((f) => (
-              <li key={f.id} className={f.archived ? 'off' : ''}>
-                <span className="name">{f.name}</span>
-                <button
-                  className="switch"
-                  role="switch"
-                  aria-checked={!f.archived}
-                  aria-label={`Mostra ${f.name} nell’elenco`}
-                  onClick={() => db.foods.update(f.id, { archived: !f.archived })}
-                />
+              <li key={f.id} className={`food-item${f.archived ? ' off' : ''}`}>
+                <div className="food-line">
+                  <button className="food-name" aria-expanded={openFood === f.id} onClick={() => setOpenFood(openFood === f.id ? null : f.id)}>
+                    <span className="name">{f.name}</span>
+                    <span className="faint small">{groupSummary(f)}</span>
+                  </button>
+                  <button
+                    className="switch"
+                    role="switch"
+                    aria-checked={!f.archived}
+                    aria-label={`Mostra ${f.name} nell’elenco`}
+                    onClick={() => db.foods.update(f.id, { archived: !f.archived })}
+                  />
+                </div>
+                {openFood === f.id && <FoodGroupEditor food={f} categories={categories} onDone={() => setOpenFood(null)} />}
               </li>
             ))}
         </ul>

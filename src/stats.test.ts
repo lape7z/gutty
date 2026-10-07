@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bristolCounts, byLevel, byMoment, byWeekday, inRange, movingAverage, symptomFrequency } from './stats';
+import { bristolCounts, byDrinks, byLevel, byMoment, byWeekday, inRange, movingAverage, symptomFrequency } from './stats';
 import type { DayEntry } from './types';
 
 const day = (date: string, extra: Partial<DayEntry> = {}): DayEntry => ({ date, foods: [], symptoms: {}, updatedAt: 0, ...extra });
@@ -61,5 +61,26 @@ describe('stats', () => {
     expect(r[4]).toEqual({ mean: 3, n: 2 });
     expect(r[0]).toEqual({ mean: 0, n: 1 });
     expect(r[2]).toEqual({ mean: undefined, n: 0 });
+  });
+
+  it('byDrinks guarda le 24 ore dopo e conta come 0 i giorni senza alcolici', () => {
+    const foods = [
+      { id: 'vino', name: 'Vino', category: 'Bevande' },
+      { id: 'pane', name: 'Pane', category: 'Cereali' },
+    ];
+    const m = (level: number) => ({ level, symptoms: [] });
+    const e = [
+      day('2026-09-01', { foods: ['pane'], moments: { sera: m(0) } }),
+      day('2026-09-02', { foods: ['vino'], drinks: 4, moments: { sera: m(2) } }),
+      day('2026-09-03', { moments: { mattina: m(4) } }),
+      day('2026-09-04', { foods: ['vino'], moments: { sera: m(3) } }), // bicchieri non indicati: escluso
+      day('2026-09-05', { foods: ['pane'], drinks: 7, moments: { sera: m(1) } }),
+    ];
+    const r = byDrinks(e, e, [], foods);
+    expect(r[0]).toEqual({ mean: 0, n: 1 });
+    expect(r[4].n).toBe(1);
+    expect(r[4].mean).toBeGreaterThan(2); // la sera (2) e la mattina dopo (4)
+    expect(r[5]).toEqual({ mean: 1, n: 1 });
+    expect(r.reduce((a, b) => a + b.n, 0)).toBe(3);
   });
 });

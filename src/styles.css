@@ -1754,3 +1754,116 @@ details.disclosure .body {
     animation: none !important;
   }
 }
+
+/* Bicchieri di alcol */
+.drinks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.drinks .hint {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--soft);
+  flex-shrink: 0;
+}
+.stepper button {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--card);
+}
+.stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.stepper output {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 720;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cibo appena creato e modifica dei gruppi */
+.new-food {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-m);
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+}
+.nf-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nf-head .icon-btn {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+}
+.ge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+.ge-select {
+  padding: 0 10px;
+  min-height: 38px;
+  max-width: 60%;
+}
+.ge-select select {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+.list li.food-item {
+  display: block;
+  padding: 8px 0;
+}
+.food-line {
+  min-height: 40px;
+}
+.food-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.food-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+}
+.food-name .small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.food-item .group-editor {
+  padding: 4px 0 6px;
+}

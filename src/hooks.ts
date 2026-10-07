@@ -4,6 +4,7 @@ import { dayScore } from './analysis';
 import { db } from './db';
 import { LIFESTYLE_FACTORS } from './defaults';
 import type { DayEntry, Food, Symptom } from './types';
+import { GROUPS } from './groups';
 
 const EMPTY_FOODS: Food[] = [];
 const EMPTY_SYMPTOMS: Symptom[] = [];
@@ -31,12 +32,13 @@ export function useDaysOrEmpty(): DayEntry[] {
   return useDays() ?? EMPTY_DAYS;
 }
 
-/** Nome leggibile per un alimento o un fattore di stile di vita. */
+/** Nome leggibile per un alimento, un gruppo di alimenti o un fattore di stile di vita. */
 export function useFactorNames(): (id: string) => string {
   const foods = useFoods();
   return useMemo(() => {
     const map = new Map<string, string>(foods.map((f) => [f.id, f.name]));
     for (const [id, name] of Object.entries(LIFESTYLE_FACTORS)) map.set(id, name);
+    for (const g of GROUPS) map.set(g.id, g.name);
     return (id: string) => map.get(id) ?? id;
   }, [foods]);
 }

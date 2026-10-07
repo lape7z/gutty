@@ -28,6 +28,8 @@ export interface DayEntry {
   meals?: Partial<Record<Meal, string[]>>;
   /** Cena abbondante o tardiva */
   bigDinner?: boolean;
+  /** Bicchieri di alcol nella giornata (assente = non indicato). */
+  drinks?: number;
   notes?: string;
   updatedAt: number;
 }
@@ -36,6 +38,11 @@ export interface Food {
   id: string;
   name: string;
   category: string;
+  /**
+   * Gruppi alimentari (es. ["g-frumento"]). Assente nei cibi salvati prima di questa funzione:
+   * in quel caso i gruppi si ricavano dal nome, quindi non serve modificare i dati esistenti.
+   */
+  groups?: string[];
   archived?: boolean;
 }
 
