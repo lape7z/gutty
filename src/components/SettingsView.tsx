@@ -12,7 +12,7 @@ import { LEVELS, MEALS, MOMENT_INFO, SPORT_TIMES, mealsOf } from '../day';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
 import type { DayEntry, Moment } from '../types';
 import { Icon, Mascot, Sec } from '../ui';
-import { DEFAULT_TIME, PUSH_URL, disableReminder, enableReminder, pushSupport, reminderState } from '../push';
+import { VAPID_PUBLIC_KEY, disableReminder, prepareReminder, pushSupport, reminderState, saveReminderState } from '../push';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from '../install';
 
 // Nella versione anteprima (pagina pubblicata) il browser blocca i download: copiamo negli appunti.
@@ -207,7 +207,7 @@ export function SettingsView() {
       </header>
 
       {!import.meta.env.VITE_ARTIFACT && <InstallCard />}
-      {PUSH_URL && <ReminderCard />}
+      {VAPID_PUBLIC_KEY && <ReminderCard />}
 
       <Sec title="Dati" />
       <section className={`data-status${!last && dayCount > 0 ? ' warn' : ''}`}>
@@ -495,28 +495,56 @@ export function SettingsView() {
   );
 }
 
-/** Promemoria serale: una notifica all'ora scelta, se la giornata non è ancora compilata. */
+/**
+ * Promemoria serale: una notifica all'ora scelta che, toccata, apre Gutty.
+ * Si attiva in due passi: permesso delle notifiche, poi conferma della registrazione su GitHub.
+ */
 function ReminderCard() {
   const [state, setState] = useState(reminderState);
-  const [time, setTime] = useState(state.time || DEFAULT_TIME);
+  const [time, setTime] = useState(state.time);
+  const [link, setLink] = useState<{ code: string; url: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const support = pushSupport();
 
-  const run = async (action: () => Promise<typeof state>) => {
+  const prepare = async () => {
     setBusy(true);
     setError(null);
     try {
-      setState(await action());
+      setLink(await prepareReminder(time));
+      setState(reminderState());
     } catch (e) {
       const msg = (e as Error).message;
       setError(
         msg === 'denied'
           ? 'Le notifiche sono bloccate. Su iPhone: Impostazioni → Notifiche → Gutty → Consenti notifiche.'
-          : `Non è stato possibile attivare il promemoria. Controlla la connessione e riprova. (${msg})`,
+          : `Non è stato possibile attivare le notifiche. Riprova. (${msg})`,
       );
     } finally {
       setBusy(false);
+    }
+  };
+
+  const confirm = () => {
+    setState(saveReminderState({ status: 'on', time }));
+    setLink(null);
+  };
+
+  const turnOff = async () => {
+    setBusy(true);
+    setState(await disableReminder());
+    setLink(null);
+    setBusy(false);
+  };
+
+  const copy = async () => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link.code);
+      setCopied(true);
+    } catch {
+      setCopied(false);
     }
   };
 
@@ -532,43 +560,80 @@ function ReminderCard() {
           <p className="faint small" style={{ margin: 0 }}>
             Questo browser non può ricevere notifiche. Apri Gutty dall’app installata sul telefono.
           </p>
+        ) : link || state.status === 'pending' ? (
+          <div className="reminder-step">
+            <strong>Ultimo passaggio: conferma su GitHub</strong>
+            <ol>
+              <li>
+                Tocca <strong>Apri GitHub</strong>: si apre una pagina già compilata (serve essere entrati nel tuo account GitHub).
+              </li>
+              <li>
+                Tocca <strong>Create</strong>. In un minuto arriva una notifica di prova.
+              </li>
+              <li>
+                Torna qui e tocca <strong>Fatto</strong>.
+              </li>
+            </ol>
+            {link ? (
+              <div className="row-actions">
+                <a className="btn primary" href={link.url} target="_blank" rel="noreferrer">
+                  Apri GitHub
+                </a>
+                <button className="btn" onClick={confirm}>
+                  <Icon name="check" size={18} /> Fatto
+                </button>
+              </div>
+            ) : (
+              <div className="row-actions">
+                <button className="btn primary" disabled={busy} onClick={() => void prepare()}>
+                  Prepara di nuovo
+                </button>
+              </div>
+            )}
+            {link && (
+              <button className="btn link" style={{ marginTop: 8, marginLeft: -4 }} onClick={() => void copy()}>
+                {copied ? 'Codice copiato' : 'Copia il codice di registrazione'}
+              </button>
+            )}
+            <button className="btn link" style={{ marginLeft: -4 }} onClick={() => void turnOff()}>
+              Annulla
+            </button>
+          </div>
         ) : (
           <>
-            <div className="toggle-row reminder-row">
-              <span>
-                Avvisami ogni sera
-                <span className="hint">{state.enabled ? `attivo: arriva alle ${time}` : 'una notifica per compilare la giornata'}</span>
-              </span>
-              <button
-                className="switch"
-                role="switch"
-                aria-checked={state.enabled}
-                aria-label="Promemoria serale"
-                disabled={busy}
-                onClick={() => void run(() => (state.enabled ? disableReminder() : enableReminder(time)))}
-              />
+            <div className="ge-row reminder-time" style={{ marginTop: 0 }}>
+              <label htmlFor="reminder-time">{state.status === 'on' ? 'Ogni sera alle' : 'Avvisami alle'}</label>
+              <input id="reminder-time" type="time" className="field time-field" value={time} onChange={(e) => e.target.value && setTime(e.target.value)} />
             </div>
-            <div className="ge-row reminder-time">
-              <label htmlFor="reminder-time">Ora del promemoria</label>
-              <input
-                id="reminder-time"
-                type="time"
-                className="field time-field"
-                value={time}
-                onChange={(e) => {
-                  const t = e.target.value;
-                  if (!t) return;
-                  setTime(t);
-                  if (state.enabled) void run(() => enableReminder(t));
-                }}
-              />
+            <div className="row-actions" style={{ marginTop: 14 }}>
+              {state.status === 'on' ? (
+                <>
+                  {time !== state.time && (
+                    <button className="btn primary" disabled={busy} onClick={() => void prepare()}>
+                      Cambia ora
+                    </button>
+                  )}
+                  <button className="btn" disabled={busy} onClick={() => void turnOff()}>
+                    Disattiva
+                  </button>
+                </>
+              ) : (
+                <button className="btn primary" disabled={busy} onClick={() => void prepare()}>
+                  Attiva il promemoria
+                </button>
+              )}
             </div>
-            {error && <p className="note" style={{ marginTop: 10 }}>{error}</p>}
-            <p className="faint small" style={{ margin: '10px 2px 0' }}>
-              Non arriva se hai già segnato almeno un pasto e i sintomi del pomeriggio. Al server arrivano solo l’ora e
-              l’indirizzo per le notifiche di questo telefono, nessun dato del diario.
+            <p className="faint small" style={{ margin: '12px 2px 0' }}>
+              {state.status === 'on'
+                ? 'Attivo. Toccando la notifica si apre Gutty. Può arrivare con qualche minuto di ritardo.'
+                : 'Una notifica ogni sera: toccandola si apre Gutty. Al server arrivano solo l’ora e l’indirizzo per le notifiche di questo telefono, cifrati; nessun dato del diario.'}
             </p>
           </>
+        )}
+        {error && (
+          <p className="note" style={{ marginTop: 10 }}>
+            {error}
+          </p>
         )}
       </section>
     </>

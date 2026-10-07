@@ -1956,3 +1956,15 @@ details.disclosure .body {
   color: var(--ink);
   flex: none;
 }
+.reminder-step ol {
+  margin: 8px 0 14px;
+  padding-left: 1.2em;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+.reminder-step ol li {
+  margin: 4px 0;
+}
+a.btn {
+  text-decoration: none;
+}

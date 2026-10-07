@@ -1,42 +1,43 @@
 import { isIOS, isStandalone } from './install';
-import type { DayEntry } from './types';
 
-// Promemoria serale con notifiche push, inviate dalla funzione Supabase "gutty-push".
+// Promemoria serale con notifiche push. Le manda GitHub (workflow "Promemoria serale" del repository):
+// il telefono si registra aprendo una issue con un codice cifrato, leggibile solo dal workflow.
 // Al server arrivano solo l'indirizzo push del telefono, l'ora scelta e il fuso orario: nessun dato del diario.
 
-/** Indirizzo della funzione; vuoto = promemoria non ancora configurato (la scheda non compare). */
-export const PUSH_URL = '';
+/** Chiave pubblica delle notifiche, aggiunta dalla build; vuota = promemoria non disponibile. */
+export const VAPID_PUBLIC_KEY: string = import.meta.env.VITE_VAPID_PUBLIC_KEY ?? '';
+export const REPO = 'lape7z/gutty';
+/** Deve coincidere con REGISTRATION_INFO in scripts/push-crypto.mjs. */
+const REGISTRATION_INFO = 'gutty-registrazione';
 
 const STATE_KEY = 'gutty:reminder';
-const FILLED_KEY = 'gutty:reminderFilled';
 export const DEFAULT_TIME = '21:00';
 
 export interface ReminderState {
-  enabled: boolean;
+  /** 'off' = spento, 'pending' = permesso dato ma telefono non ancora registrato, 'on' = registrato. */
+  status: 'off' | 'pending' | 'on';
   time: string;
 }
 
 export type PushSupport = 'ok' | 'needs-install' | 'unsupported' | 'denied';
 
-function read<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function write(key: string, value: unknown): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Memoria del browser non disponibile: il promemoria funziona lo stesso, ma la scheda non lo ricorda.
-  }
-}
-
 export function reminderState(): ReminderState {
-  return read<ReminderState>(STATE_KEY, { enabled: false, time: DEFAULT_TIME });
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Partial<ReminderState>) : {};
+    return { status: parsed.status ?? 'off', time: parsed.time ?? DEFAULT_TIME };
+  } catch {
+    return { status: 'off', time: DEFAULT_TIME };
+  }
+}
+
+export function saveReminderState(state: ReminderState): ReminderState {
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  } catch {
+    // Memoria del browser non disponibile: il promemoria funziona lo stesso, la scheda non lo ricorda.
+  }
+  return state;
 }
 
 export function pushSupport(): PushSupport {
@@ -49,26 +50,55 @@ export function pushSupport(): PushSupport {
   return 'ok';
 }
 
-async function call(body: unknown): Promise<void> {
-  const res = await fetch(PUSH_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) throw new Error(`Errore del server (${res.status})`);
-}
-
-function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
+export function b64urlToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const s = atob((b64 + '='.repeat((4 - (b64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
   const out = new Uint8Array(new ArrayBuffer(s.length));
   for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
   return out;
 }
 
-async function subscription(create: boolean): Promise<PushSubscription | null> {
-  const reg = await navigator.serviceWorker.ready;
-  const existing = await reg.pushManager.getSubscription();
-  if (existing || !create) return existing;
-  const res = await fetch(`${PUSH_URL}?action=key`);
-  if (!res.ok) throw new Error(`Errore del server (${res.status})`);
-  const { publicKey } = (await res.json()) as { publicKey: string };
-  return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64ToBytes(publicKey) });
+function bytesToB64url(bytes: Uint8Array): string {
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export interface Registration {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  time: string;
+  tz: string;
+}
+
+/**
+ * Cifra la registrazione con la chiave pubblica delle notifiche (ECDH P-256 + HKDF + AES-GCM),
+ * così nella issue pubblica non compare l'indirizzo del telefono.
+ * Formato: versione (1) | chiave effimera (65) | salt (16) | iv (12) | testo cifrato + tag.
+ */
+export async function encryptRegistration(reg: Registration, publicKey = VAPID_PUBLIC_KEY): Promise<string> {
+  const subtle = crypto.subtle;
+  const server = await subtle.importKey('raw', b64urlToBytes(publicKey), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const eph = await subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const shared = await subtle.deriveBits({ name: 'ECDH', public: server }, eph.privateKey, 256);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const hkdf = await subtle.importKey('raw', shared, 'HKDF', false, ['deriveKey']);
+  const key = await subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt, info: new TextEncoder().encode(REGISTRATION_INFO) },
+    hkdf,
+    { name: 'AES-GCM', length: 128 },
+    false,
+    ['encrypt'],
+  );
+  const data = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(reg))));
+  const ephRaw = new Uint8Array(await subtle.exportKey('raw', eph.publicKey));
+  const out = new Uint8Array(1 + ephRaw.length + salt.length + iv.length + data.length);
+  out.set([1], 0);
+  out.set(ephRaw, 1);
+  out.set(salt, 66);
+  out.set(iv, 82);
+  out.set(data, 94);
+  return bytesToB64url(out);
 }
 
 function timezone(): string {
@@ -79,41 +109,44 @@ function timezone(): string {
   }
 }
 
-/** Chiede il permesso (va chiamata da un tocco) e attiva il promemoria all'ora indicata. */
-export async function enableReminder(time: string): Promise<ReminderState> {
+/** Indirizzo della issue già compilata che registra il telefono: basta toccare "Create". */
+export function registrationUrl(code: string, time: string): string {
+  const body = [
+    `Registrazione del promemoria serale di Gutty alle ${time}.`,
+    'Il codice è cifrato: lo legge solo il promemoria. Tocca **Create** per attivarlo.',
+    '',
+    '```gutty',
+    code,
+    '```',
+  ].join('\n');
+  const params = new URLSearchParams({ title: `Promemoria Gutty ${time}`, body });
+  return `https://github.com/${REPO}/issues/new?${params.toString()}`;
+}
+
+/**
+ * Chiede il permesso (va chiamata da un tocco), crea l'abbonamento push e prepara il codice
+ * di registrazione da mandare a GitHub.
+ */
+export async function prepareReminder(time: string): Promise<{ code: string; url: string }> {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error(permission === 'denied' ? 'denied' : 'Permesso non concesso.');
-  const sub = await subscription(true);
-  await call({ action: 'subscribe', subscription: sub!.toJSON(), remindAt: time, tz: timezone() });
-  const state = { enabled: true, time };
-  write(STATE_KEY, state);
-  return state;
+  const reg = await navigator.serviceWorker.ready;
+  const sub =
+    (await reg.pushManager.getSubscription()) ??
+    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64urlToBytes(VAPID_PUBLIC_KEY) }));
+  const json = sub.toJSON();
+  const code = await encryptRegistration({ endpoint: sub.endpoint, keys: { p256dh: json.keys!.p256dh, auth: json.keys!.auth }, time, tz: timezone() });
+  saveReminderState({ status: 'pending', time });
+  return { code, url: registrationUrl(code, time) };
 }
 
+/** Spegne il promemoria: senza abbonamento, GitHub riceve un errore e lo cancella da solo. */
 export async function disableReminder(): Promise<ReminderState> {
-  const sub = await subscription(false);
-  if (sub) {
-    await call({ action: 'unsubscribe', endpoint: sub.endpoint }).catch(() => undefined);
-    await sub.unsubscribe().catch(() => undefined);
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await (await reg.pushManager.getSubscription())?.unsubscribe();
+  } catch {
+    // Niente da annullare.
   }
-  const state = { enabled: false, time: reminderState().time };
-  write(STATE_KEY, state);
-  return state;
-}
-
-/** La giornata conta come compilata con almeno un alimento e i sintomi del pomeriggio. */
-export function isFilled(entry: DayEntry): boolean {
-  return entry.foods.length > 0 && !!entry.moments?.pomeriggio;
-}
-
-/** Avvisa il server che oggi non serve il promemoria (una volta al giorno, senza bloccare nulla). */
-export function markFilled(entry: DayEntry, today: string): void {
-  if (!PUSH_URL || entry.date !== today || !isFilled(entry) || !reminderState().enabled) return;
-  if (read<string | null>(FILLED_KEY, null) === today || pushSupport() !== 'ok') return;
-  void (async () => {
-    const sub = await subscription(false);
-    if (!sub) return;
-    await call({ action: 'filled', endpoint: sub.endpoint, date: today });
-    write(FILLED_KEY, today);
-  })().catch(() => undefined);
+  return saveReminderState({ status: 'off', time: reminderState().time });
 }
