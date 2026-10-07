@@ -1,4 +1,10 @@
 {
-  "iscrizioni": [],
+  "iscrizioni": [
+    {
+      "id": "a455dde73365b5e6",
+      "codice": "AQQcjdkbiDhZL46TuVNpQOpVFP_WaKd7_6KSYImS3lWyL3jVuj61pYjscdeN1I2z_eoak2uLOnD85PrwfyGBH9nRsr0g_jC7ptFkyvisIvh5PP0IFfOSB3spQXoxJ8QwAWRGnJYxoeML-N6ALShYZU79kkbcLkK-IyS9PNJWLj8flyjLqMOMEAW7Tm9KJyBZDKwfUSiRlwKOegKCvM31hO0GlgnzBopatZCIS0xL3vKMjUtMD44B9kru70qcTGGnYiswpSc23Ya4tmXkRNVE0irbO7Np9BgQ8Hfcc_Gmq9wvk37Mn8pLbXvmGgQaXfd5fqsWntGI9VCV076_bOZUUNOtE_RJvT9dJ0cQ-4E6qBEG8WNmec6kWcZItFAON4UvRESyJwi_-6RAxMbqUSmV1q2DqNUBVbDFqHvTG0vSmAbtyWjW9l_yNGRKTVOHnhzdRSclGfH075kq8kMjPLIXq51koBLfrgxbcT68hP26aKbCYD5B0-FJ30txPXqoPK1D26xGiQOLkkRDVOWe9VsbmmDuy4T5m8xpREVwXNm2ev5xOrgiVD4QwuP099NO5MxDXGyI6vh2tW4gyN3bDSbjhAEXLa_S6GyudB_iO218yaGzza_bhIuCELRZAtmpTD_VG_riX9MgkRt7_wadP20u6Uo",
+      "registrata": "2026-10-07T10:44:06.772Z"
+    }
+  ],
   "inviati": {}
 }
