@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bristolCounts, byDrinks, byLevel, bySport, byMoment, byWeekday, inRange, movingAverage, symptomFrequency } from './stats';
+import { bristolCounts, byDrinks, byLevel, bySport, drinksByDay, byMoment, byWeekday, inRange, movingAverage, symptomFrequency } from './stats';
 import type { DayEntry } from './types';
 
 const day = (date: string, extra: Partial<DayEntry> = {}): DayEntry => ({ date, foods: [], symptoms: {}, updatedAt: 0, ...extra });
@@ -97,6 +97,26 @@ describe('stats', () => {
       { mean: 0.5, n: 2 },
       { mean: undefined, n: 0 },
       { mean: 0, n: 1 },
+    ]);
+  });
+
+  it('drinksByDay copre tutto il periodo e distingue "niente alcol" da "non si sa"', () => {
+    const foods = [
+      { id: 'vino', name: 'Vino', category: 'Bevande' },
+      { id: 'pane', name: 'Pane', category: 'Cereali' },
+    ];
+    const e = [
+      day('2026-09-01', { foods: ['pane'] }),
+      day('2026-09-02', { foods: ['vino', 'pane'], drinks: 2 }),
+      day('2026-09-04', { foods: ['vino'] }),
+      day('2026-09-10', { drinks: 5 }), // fuori dal periodo
+    ];
+    expect(drinksByDay(e, '2026-09-01', '2026-09-05', foods)).toEqual([
+      { date: '2026-09-01', drinks: 0, logged: true, names: [] },
+      { date: '2026-09-02', drinks: 2, logged: true, names: ['Vino'] },
+      { date: '2026-09-03', drinks: undefined, logged: false, names: [] },
+      { date: '2026-09-04', drinks: undefined, logged: true, names: ['Vino'] },
+      { date: '2026-09-05', drinks: undefined, logged: false, names: [] },
     ]);
   });
 });

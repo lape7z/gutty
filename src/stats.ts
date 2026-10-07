@@ -1,6 +1,6 @@
 import { MOMENTS, dayScore, followUp } from './analysis';
 import { addDays } from './date';
-import { drinksOf } from './groups';
+import { drinksOf, isAlcoholic } from './groups';
 import type { DayEntry, Food, Moment } from './types';
 
 /** Media e numero di valori: `mean` è undefined quando non c'è nessun dato. */
@@ -119,4 +119,32 @@ export function bySport(entries: DayEntry[], symptomIds: string[]): Bucket[] {
     for (const m of e.sport ?? []) groups[MOMENTS.indexOf(m) + 1].push(s);
   }
   return groups.map(bucket);
+}
+
+/** Un giorno nel grafico dell'alcol. */
+export interface DrinkDay {
+  date: string;
+  /** Bicchieri (undefined = non si sa: giornata non registrata o alcolici senza numero). */
+  drinks: number | undefined;
+  /** C'è una giornata registrata per questa data. */
+  logged: boolean;
+  /** Alcolici segnati quel giorno, per il dettaglio. */
+  names: string[];
+}
+
+/** Bicchieri giorno per giorno, da `from` a `to` compresi, anche per i giorni non registrati. */
+export function drinksByDay(entries: DayEntry[], from: string, to: string, foods: Food[]): DrinkDay[] {
+  const foodById = new Map(foods.map((f) => [f.id, f]));
+  const byDate = new Map(entries.map((e) => [e.date, e]));
+  const out: DrinkDay[] = [];
+  for (let date = from; date <= to; date = addDays(date, 1)) {
+    const e = byDate.get(date);
+    out.push({
+      date,
+      drinks: e ? drinksOf(e, foodById) : undefined,
+      logged: !!e,
+      names: e ? e.foods.map((id) => foodById.get(id)).filter((f): f is Food => isAlcoholic(f)).map((f) => f.name) : [],
+    });
+  }
+  return out;
 }

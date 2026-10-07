@@ -1882,3 +1882,56 @@ details.disclosure .body {
   font-size: 0.8rem;
   color: var(--ink-3);
 }
+.chart-legend .sq {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+.chart-legend .sq.light {
+  opacity: 0.45;
+}
+.chart-legend .ring {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.3px solid var(--ink-3);
+}
+
+/* Periodo dei grafici */
+.period {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: -4px 0 4px;
+  min-height: 40px;
+}
+.period strong {
+  min-width: 9em;
+  text-align: center;
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+.period.custom {
+  justify-content: stretch;
+  gap: 10px;
+}
+.period.custom label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.period.custom input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--ink);
+}

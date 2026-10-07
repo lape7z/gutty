@@ -1,18 +1,39 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { MOMENTS } from '../analysis';
-import { addDays, daysBetween, todayISO } from '../date';
+import { addDays, daysBetween, formatShort, todayISO } from '../date';
 import { MOMENT_INFO } from '../day';
 import { overallScore, useActiveSymptoms, useDays, useFactorNames, useFoods } from '../hooks';
-import { bristolCounts, byDrinks, byLevel, bySport, byMoment, byWeekday, inRange, symptomFrequency, type Bucket } from '../stats';
+import { bristolCounts, byDrinks, byLevel, bySport, byMoment, byWeekday, drinksByDay, symptomFrequency, type Bucket } from '../stats';
+import { DrinksChart } from './DrinksChart';
+import { Icon } from '../ui';
 import { levelWord, num } from '../ui';
 import { ColumnChart, RowChart, type BarItem } from './Bars';
 import { TrendChart, type TrendPoint } from './TrendChart';
 
-const RANGES: { key: string; label: string; days: number | undefined }[] = [
+type RangeKey = '7' | '30' | '90' | '365' | 'all' | 'custom';
+
+const RANGES: { key: RangeKey; label: string; days?: number }[] = [
+  { key: '7', label: '7 giorni', days: 7 },
   { key: '30', label: '30 giorni', days: 30 },
   { key: '90', label: '90 giorni', days: 90 },
-  { key: 'all', label: 'Tutto', days: undefined },
+  { key: '365', label: 'Un anno', days: 365 },
+  { key: 'all', label: 'Tutto' },
+  { key: 'custom', label: 'Scegli le date' },
 ];
+
+const fmtYear = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+
+/** "il 12 set", "l'8 set", "l'11 set". */
+function onDay(date: string): string {
+  const d = Number(date.slice(8));
+  return `${d === 1 || d === 8 || d === 11 ? 'l’' : 'il '}${formatShort(date)}`;
+}
+
+/** "1 set – 30 set", con l'anno quando non è quello in corso. */
+function formatPeriod(from: string, to: string, today: string): string {
+  const fmt = (d: string) => (d.slice(0, 4) === today.slice(0, 4) ? formatShort(d) : fmtYear.format(new Date(`${d}T12:00`)));
+  return from === to ? fmt(from) : `${fmt(from)} – ${fmt(to)}`;
+}
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const WEEKDAYS_LONG = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
@@ -60,12 +81,25 @@ export function ChartsView() {
   const symptoms = useActiveSymptoms();
   const nameOf = useFactorNames();
   const foods = useFoods();
-  const [rangeKey, setRangeKey] = useState('30');
   const today = todayISO();
+  const [rangeKey, setRangeKey] = useState<RangeKey>('30');
+  // Ultimo giorno del periodo: con le frecce si va indietro e avanti di un periodo alla volta.
+  const [end, setEnd] = useState(today);
+  const [custom, setCustom] = useState({ from: addDays(today, -29), to: today });
   const range = RANGES.find((r) => r.key === rangeKey)!;
   const ids = symptoms.map((s) => s.id);
 
-  const entries = useMemo(() => inRange(days ?? [], today, range.days), [days, today, range.days]);
+  const firstDay = days?.length ? days[0].date : addDays(today, -13);
+  const { from, to } =
+    rangeKey === 'custom'
+      ? custom.from <= custom.to
+        ? custom
+        : { from: custom.to, to: custom.from }
+      : range.days
+        ? { from: addDays(end, -(range.days - 1)), to: end }
+        : { from: firstDay < today ? firstDay : addDays(today, -13), to: today };
+
+  const entries = useMemo(() => (days ?? []).filter((e) => e.date >= from && e.date <= to), [days, from, to]);
 
   const points = useMemo(() => {
     const map = new Map<string, TrendPoint>();
@@ -76,8 +110,15 @@ export function ChartsView() {
   if (!days) return null;
 
   const scored = entries.filter((d) => overallScore(d, symptoms) !== undefined);
-  const spanDays =
-    range.days ?? Math.max(14, days.length ? daysBetween(days[0].date, today) + 1 : 14);
+  const spanDays = Math.max(2, daysBetween(from, to) + 1);
+  const choose = (key: RangeKey) => {
+    setRangeKey(key);
+    setEnd(today);
+  };
+  const shift = (dir: -1 | 1) => {
+    const next = addDays(end, dir * range.days!);
+    setEnd(next > today ? today : next);
+  };
 
   const header = (
     <>
@@ -90,11 +131,37 @@ export function ChartsView() {
       </header>
       <div className="pills range-pills" role="group" aria-label="Periodo">
         {RANGES.map((r) => (
-          <button key={r.key} className="pill" aria-pressed={rangeKey === r.key} onClick={() => setRangeKey(r.key)}>
+          <button key={r.key} className="pill" aria-pressed={rangeKey === r.key} onClick={() => choose(r.key)}>
             {r.label}
           </button>
         ))}
       </div>
+      {rangeKey === 'custom' ? (
+        <div className="period custom">
+          <label>
+            <span>Dal</span>
+            <input type="date" className="field" value={custom.from} max={today} onChange={(e) => e.target.value && setCustom((c) => ({ ...c, from: e.target.value }))} />
+          </label>
+          <label>
+            <span>Al</span>
+            <input type="date" className="field" value={custom.to} max={today} onChange={(e) => e.target.value && setCustom((c) => ({ ...c, to: e.target.value }))} />
+          </label>
+        </div>
+      ) : (
+        <div className="period">
+          {range.days && (
+            <button className="icon-btn" aria-label="Periodo precedente" onClick={() => shift(-1)}>
+              <Icon name="left" size={18} />
+            </button>
+          )}
+          <strong aria-live="polite">{formatPeriod(from, to, today)}</strong>
+          {range.days && (
+            <button className="icon-btn" aria-label="Periodo successivo" disabled={end >= today} onClick={() => shift(1)}>
+              <Icon name="right" size={18} />
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 
@@ -173,6 +240,23 @@ export function ChartsView() {
               ? `Nei giorni con sport i sintomi sono un po’ più alti: ${num(withSport)} contro ${num(sport[0].mean)}.`
               : 'Per ora lo sport non sembra cambiare molto i sintomi.';
 
+  // --- Alcol giorno per giorno
+  const drinkSeries = drinksByDay(days, from, to, foods);
+  const known = drinkSeries.filter((d) => d.drinks !== undefined);
+  const drinkTotal = known.reduce((a, d) => a + d.drinks!, 0);
+  const drinkingDays = known.filter((d) => d.drinks! > 0);
+  const maxDay = drinkingDays.reduce<(typeof known)[number] | undefined>((m, d) => (!m || d.drinks! > m.drinks! ? d : m), undefined);
+  const unknownDays = drinkSeries.filter((d) => d.logged && d.drinks === undefined).length;
+  const perWeek = known.length ? (drinkTotal / known.length) * 7 : 0;
+  const dailyText =
+    known.length === 0
+      ? 'Nessuna giornata registrata in questo periodo.'
+      : drinkTotal === 0
+        ? `Nessun bicchiere nelle ${known.length} giornate registrate.`
+        : `${drinkTotal} ${drinkTotal === 1 ? 'bicchiere' : 'bicchieri'} in ${drinkingDays.length} ${drinkingDays.length === 1 ? 'giornata' : 'giornate'} su ${known.length}${
+            known.length >= 7 ? `, circa ${num(perWeek)} a settimana` : ''
+          }. Il giorno con più alcol: ${maxDay!.drinks} ${maxDay!.drinks === 1 ? 'bicchiere' : 'bicchieri'} ${onDay(maxDay!.date)}.`;
+
   // --- Alcol: 0, 1-2 e 3 o più bicchieri, sintomi nelle 24 ore dopo
   const drinks = byDrinks(entries, days ?? [], ids, foods);
   const al = { none: pooled(drinks, [0]), few: pooled(drinks, [1, 2]), many: pooled(drinks, [3, 4, 5]) };
@@ -197,7 +281,7 @@ export function ChartsView() {
       {header}
 
       <Card title="Andamento" takeaway={trendText}>
-        <TrendChart points={points} end={today} days={spanDays} />
+        <TrendChart points={points} end={to} days={spanDays} />
       </Card>
 
       <Card
@@ -286,7 +370,21 @@ export function ChartsView() {
       </Card>
 
       <Card
-        title="Alcol"
+        title="Alcol giorno per giorno"
+        takeaway={dailyText}
+        foot={
+          unknownDays > 0
+            ? `${unknownDays} ${unknownDays === 1 ? 'giornata ha' : 'giornate hanno'} alcolici senza il numero di bicchieri: puoi aggiungerlo dal Diario.`
+            : spanDays > 120
+              ? 'Su periodi lunghi le barre sono per settimana.'
+              : undefined
+        }
+      >
+        <DrinksChart series={drinkSeries} />
+      </Card>
+
+      <Card
+        title="Alcol e sintomi"
         takeaway={drinksText}
         foot="Sintomi nelle 24 ore dopo, da 0 (bene) a 4 (malissimo). Le giornate senza alcolici segnati contano come 0 bicchieri."
       >
@@ -339,7 +437,7 @@ export function ChartsView() {
         </div>
       </Card>
 
-      <p className="saved">Periodo: {range.days ? `dal ${addDays(today, -(range.days - 1)).split('-').reverse().join('/')} a oggi` : 'tutto il diario'}</p>
+      <p className="saved">Periodo: {formatPeriod(from, to, today)}</p>
     </>
   );
 }
