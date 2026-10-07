@@ -6,6 +6,7 @@ import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
 import { backupDue, saveBackup, snoozeBackup } from '../backup';
 import { isAlcoholic, suggestCategory, suggestGroups } from '../groups';
+import { markFilled } from '../push';
 import { FoodGroupEditor, groupSummary } from './FoodGroups';
 import { LEVELS, MEALS, MOMENT_INFO, SPORT_TIMES, mealNow, mealsOf, momentNow, withMeals } from '../day';
 import type { DayEntry, Food, Meal, Moment, MomentLog } from '../types';
@@ -74,6 +75,7 @@ export function DayView({ date, onDateChange }: Props) {
     setDraft(next);
     setSavedAt(null);
     void saveDay(next);
+    markFilled(next, today);
   };
 
   const meals = mealsOf(draft);

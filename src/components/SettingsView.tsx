@@ -12,6 +12,7 @@ import { LEVELS, MEALS, MOMENT_INFO, SPORT_TIMES, mealsOf } from '../day';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
 import type { DayEntry, Moment } from '../types';
 import { Icon, Mascot, Sec } from '../ui';
+import { DEFAULT_TIME, PUSH_URL, disableReminder, enableReminder, pushSupport, reminderState } from '../push';
 import { canPromptInstall, isIOS, isStandalone, onInstallChange, promptInstall } from '../install';
 
 // Nella versione anteprima (pagina pubblicata) il browser blocca i download: copiamo negli appunti.
@@ -206,6 +207,7 @@ export function SettingsView() {
       </header>
 
       {!import.meta.env.VITE_ARTIFACT && <InstallCard />}
+      {PUSH_URL && <ReminderCard />}
 
       <Sec title="Dati" />
       <section className={`data-status${!last && dayCount > 0 ? ' warn' : ''}`}>
@@ -489,6 +491,86 @@ export function SettingsView() {
         <br />
         Non sostituisce il parere del medico.
       </footer>
+    </>
+  );
+}
+
+/** Promemoria serale: una notifica all'ora scelta, se la giornata non è ancora compilata. */
+function ReminderCard() {
+  const [state, setState] = useState(reminderState);
+  const [time, setTime] = useState(state.time || DEFAULT_TIME);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const support = pushSupport();
+
+  const run = async (action: () => Promise<typeof state>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      setState(await action());
+    } catch (e) {
+      const msg = (e as Error).message;
+      setError(
+        msg === 'denied'
+          ? 'Le notifiche sono bloccate. Su iPhone: Impostazioni → Notifiche → Gutty → Consenti notifiche.'
+          : `Non è stato possibile attivare il promemoria. Controlla la connessione e riprova. (${msg})`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Sec title="Promemoria serale" />
+      <section className="sheet">
+        {support === 'needs-install' ? (
+          <p className="faint small" style={{ margin: 0 }}>
+            Su iPhone le notifiche arrivano solo all’app aggiunta alla schermata Home: apri Gutty dalla sua icona e attivalo da qui.
+          </p>
+        ) : support === 'unsupported' ? (
+          <p className="faint small" style={{ margin: 0 }}>
+            Questo browser non può ricevere notifiche. Apri Gutty dall’app installata sul telefono.
+          </p>
+        ) : (
+          <>
+            <div className="toggle-row reminder-row">
+              <span>
+                Avvisami ogni sera
+                <span className="hint">{state.enabled ? `attivo: arriva alle ${time}` : 'una notifica per compilare la giornata'}</span>
+              </span>
+              <button
+                className="switch"
+                role="switch"
+                aria-checked={state.enabled}
+                aria-label="Promemoria serale"
+                disabled={busy}
+                onClick={() => void run(() => (state.enabled ? disableReminder() : enableReminder(time)))}
+              />
+            </div>
+            <div className="ge-row reminder-time">
+              <label htmlFor="reminder-time">Ora del promemoria</label>
+              <input
+                id="reminder-time"
+                type="time"
+                className="field time-field"
+                value={time}
+                onChange={(e) => {
+                  const t = e.target.value;
+                  if (!t) return;
+                  setTime(t);
+                  if (state.enabled) void run(() => enableReminder(t));
+                }}
+              />
+            </div>
+            {error && <p className="note" style={{ marginTop: 10 }}>{error}</p>}
+            <p className="faint small" style={{ margin: '10px 2px 0' }}>
+              Non arriva se hai già segnato almeno un pasto e i sintomi del pomeriggio. Al server arrivano solo l’ora e
+              l’indirizzo per le notifiche di questo telefono, nessun dato del diario.
+            </p>
+          </>
+        )}
+      </section>
     </>
   );
 }

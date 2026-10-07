@@ -18,7 +18,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       // I font sono inclusi nell'app: così funziona tutto anche offline.
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png}', '**/*-latin-*.woff2'] },
+      // push-sw.js aggiunge le notifiche del promemoria serale al service worker.
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,png}', '**/*-latin-*.woff2'], importScripts: ['push-sw.js'] },
       manifest: {
         name: 'Gutty – diario del colon irritabile',
         short_name: 'Gutty',
