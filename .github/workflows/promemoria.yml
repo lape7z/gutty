@@ -1,0 +1,86 @@
+name: Promemoria serale
+
+# GitHub fa da piccolo server per le notifiche di Gutty:
+# - una issue "Promemoria Gutty" aperta dall'app registra il telefono (dati cifrati);
+# - ogni 15 minuti manda il promemoria a chi ha raggiunto l'ora scelta (una volta al giorno);
+# - "Run workflow" manda subito una notifica di prova.
+# Serve il secret GUTTY_PUSH_SEED (un testo casuale lungo), da cui derivano le chiavi delle notifiche.
+# Lo stato vive sul branch "promemoria-stato": i salvataggi quotidiani tengono anche attivo il workflow.
+on:
+  schedule:
+    - cron: '4,19,34,49 * * * *'
+  issues:
+    types: [opened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: promemoria
+  cancel-in-progress: false
+
+jobs:
+  promemoria:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, 'Promemoria Gutty')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GUTTY_PUSH_SEED: ${{ secrets.GUTTY_PUSH_SEED }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Controlla il secret
+        run: |
+          if [ -z "$GUTTY_PUSH_SEED" ]; then
+            echo "Manca il secret GUTTY_PUSH_SEED: il promemoria non è ancora configurato."
+            echo "SKIP=1" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v4
+        if: env.SKIP != '1'
+
+      - uses: actions/setup-node@v4
+        if: env.SKIP != '1'
+        with:
+          node-version: 22
+
+      - name: Stato (branch promemoria-stato)
+        if: env.SKIP != '1'
+        run: |
+          if git ls-remote --exit-code --heads origin promemoria-stato > /dev/null; then
+            git fetch --depth 1 origin promemoria-stato
+            git worktree add stato FETCH_HEAD
+          else
+            git worktree add --detach stato
+            git -C stato switch --orphan promemoria-stato
+          fi
+
+      - name: Registra il telefono
+        if: env.SKIP != '1' && github.event_name == 'issues'
+        env:
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          node scripts/promemoria.mjs registra "$GITHUB_EVENT_PATH"
+          if [ -f risposta.md ]; then
+            gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY" --body-file risposta.md
+            gh issue close "$ISSUE" --repo "$GITHUB_REPOSITORY"
+          fi
+
+      - name: Manda i promemoria
+        if: env.SKIP != '1' && github.event_name == 'schedule'
+        run: node scripts/promemoria.mjs invia
+
+      - name: Notifica di prova
+        if: env.SKIP != '1' && github.event_name == 'workflow_dispatch'
+        run: node scripts/promemoria.mjs prova
+
+      - name: Salva lo stato
+        if: env.SKIP != '1'
+        run: |
+          cd stato
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git -c user.name='gutty-promemoria' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -q -m 'Promemoria: aggiorna stato'
+            git push -q origin HEAD:refs/heads/promemoria-stato
+          fi

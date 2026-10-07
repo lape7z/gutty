@@ -26,6 +26,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Chiave pubblica del promemoria serale (vedi promemoria.yml); vuota se il secret non c'è.
+      - run: node scripts/vapid-public.mjs >> "$GITHUB_ENV"
+        env:
+          GUTTY_PUSH_SEED: ${{ secrets.GUTTY_PUSH_SEED }}
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
