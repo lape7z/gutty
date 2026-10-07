@@ -7,7 +7,7 @@ import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../ho
 import { backupDue, saveBackup, snoozeBackup } from '../backup';
 import { isAlcoholic, suggestCategory, suggestGroups } from '../groups';
 import { FoodGroupEditor, groupSummary } from './FoodGroups';
-import { LEVELS, MEALS, MOMENT_INFO, mealNow, mealsOf, momentNow, withMeals } from '../day';
+import { LEVELS, MEALS, MOMENT_INFO, SPORT_TIMES, mealNow, mealsOf, momentNow, withMeals } from '../day';
 import type { DayEntry, Food, Meal, Moment, MomentLog } from '../types';
 import { Icon, Mascot, Sec, dayMood, heatLevel, levelWord, type Face } from '../ui';
 
@@ -314,13 +314,15 @@ export function DayView({ date, onDateChange }: Props) {
         <hr className="divider" />
         <FacePicker label="Sonno" value={draft.sleep} options={SLEEP} onChange={(sleep) => update({ sleep })} />
         <hr className="divider" />
+        <SportPicker value={draft.sport} onChange={(sport) => update({ sport })} />
+        <hr className="divider" />
         <label className="field-label" htmlFor="notes">
           Note <span className="faint">facoltative</span>
         </label>
         <textarea
           id="notes"
           className="field"
-          placeholder="Farmaci, ciclo, sport, pasti fuori casa…"
+          placeholder="Farmaci, ciclo, pasti fuori casa…"
           value={draft.notes ?? ''}
           onChange={(e) => update({ notes: e.target.value })}
         />
@@ -460,6 +462,32 @@ const SLEEP: { face: Face; label: string }[] = [
   { face: 'happy', label: 'Buono' },
   { face: 'zen', label: 'Ottimo' },
 ];
+
+/** Attività sportiva: quando l'hai fatta, anche in più momenti. */
+function SportPicker({ value = [], onChange }: { value: Moment[] | undefined; onChange: (v: Moment[] | undefined) => void }) {
+  const toggle = (m: Moment) => {
+    const next = SPORT_TIMES.map((t) => t.id).filter((id) => (id === m ? !value.includes(m) : value.includes(id)));
+    onChange(next.length ? next : undefined);
+  };
+  return (
+    <div>
+      <div className="field-label">
+        Attività sportiva
+        <span className="faint">{value.length ? 'fatta' : 'quando l’hai fatta?'}</span>
+      </div>
+      <div className="sport-times" role="group" aria-label="Attività sportiva">
+        {SPORT_TIMES.map((t) => (
+          <button key={t.id} className="pill" aria-pressed={value.includes(t.id)} onClick={() => toggle(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="hint sport-hint">
+        Camminata veloce, corsa, palestra, bici, nuoto… Lascia vuoto se non l’hai fatta.
+      </div>
+    </div>
+  );
+}
 
 function FacePicker({
   label,

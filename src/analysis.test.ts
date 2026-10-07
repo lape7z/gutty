@@ -107,11 +107,12 @@ describe('finestra delle 24 ore', () => {
 });
 
 describe('analyze sui dati demo', () => {
-  it('trova i trigger nascosti nelle 24 ore, anche la quantità di alcol', () => {
+  it('trova i fattori nascosti nelle 24 ore: alimenti, quantità di alcol e sport', () => {
     const res = analyze(demo, { symptomIds, target: { kind: 'overall' }, lag: timed });
     const strong = res.results.filter((r) => r.confidence === 'probabile').map((r) => r.id);
     // La birra compare perché è il modo più comune di bere 3 o più bicchieri: è un indizio vero, non un errore.
-    expect(strong.sort()).toEqual(['alcol-3-piu', 'birra', 'cena-pesante', 'cipolla', 'latte', 'stress-alto']);
+    expect(strong.sort()).toEqual(['alcol-3-piu', 'birra', 'cena-pesante', 'cipolla', 'latte', 'sport', 'stress-alto']);
+    expect(res.results.find((r) => r.id === 'sport')!.diff).toBeLessThan(0); // lo sport aiuta
     expect(res.results.find((r) => r.id === 'alcol-1-2')?.confidence ?? 'nessuna').toBe('nessuna');
     expect(res.results.find((r) => r.id === 'cipolla')!.netEffect).toBeGreaterThan(0.5);
   });

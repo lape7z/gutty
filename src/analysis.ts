@@ -103,7 +103,7 @@ export function dayScore(entry: DayEntry, symptomIds: string[], target: Target):
   return detailScore(entry, symptomIds, target);
 }
 
-/** Alimenti della giornata più i fattori di stile di vita (stress, sonno, cena pesante). */
+/** Alimenti della giornata più i fattori di stile di vita (stress, sonno, cena pesante, alcol, sport). */
 export function factorsOf(entry: DayEntry): string[] {
   const out = [...entry.foods];
   if (entry.stress !== undefined && entry.stress >= 4) out.push('stress-alto');
@@ -112,6 +112,7 @@ export function factorsOf(entry: DayEntry): string[] {
   // La quantità di alcol conta più del tipo: due fasce, così si vede se "tanto" è diverso da "poco".
   if (entry.drinks !== undefined && entry.drinks >= 3) out.push('alcol-3-piu');
   else if (entry.drinks !== undefined && entry.drinks >= 1) out.push('alcol-1-2');
+  if (entry.sport?.length) out.push('sport');
   return out;
 }
 

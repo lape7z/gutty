@@ -1,7 +1,7 @@
 import { mulberry32 } from './analysis';
 import { addDays, todayISO } from './date';
 import { DEFAULT_FOODS, DEFAULT_SYMPTOMS } from './defaults';
-import type { DayEntry, Meal, MomentLog } from './types';
+import type { DayEntry, Meal, Moment, MomentLog } from './types';
 
 const COMMON = new Set(['caffe', 'pasta-di-grano', 'pane', 'riso', 'formaggi-stagionati']);
 const BREAKFAST = new Set(['caffe', 'latte', 'yogurt', 'pane', 'te', 'succhi-di-frutta', 'dolci', 'mela']);
@@ -14,12 +14,14 @@ const ALCOHOL = new Set(['vino', 'birra', 'superalcolici']);
  * - latte → gonfiore e aria nel pomeriggio
  * - stress alto → dolore la sera
  * - cena abbondante o tardiva → gonfiore la sera e la notte
+ * - attività sportiva → un po' meglio il pomeriggio e la sera
  * - 3 o più bicchieri di alcol → fastidio la notte e urgenza la mattina dopo (1-2 bicchieri non pesano)
  */
 export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[] {
   const rand = mulberry32(seed);
   // Generatore separato per l'alcol, così il resto del diario resta identico a prima.
   const drinkRand = mulberry32(seed + 1);
+  const sportRand = mulberry32(seed + 2);
   const start = addDays(end, -(days - 1));
   const pick = <T,>(arr: T[]) => arr[Math.floor(rand() * arr.length)];
 
@@ -36,6 +38,7 @@ export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[
       date,
       meals,
       drinks: drinking ? 1 + Math.floor(drinkRand() * drinkRand() * 6) : 0,
+      sport: (sportRand() < 0.35 ? [sportRand() < 0.5 ? 'mattina' : 'pomeriggio'] : []) as Moment[],
       stress: 1 + Math.floor(rand() * 5),
       sleep: 1 + Math.floor(rand() * 5),
       bigDinner: rand() < 0.2,
@@ -86,6 +89,10 @@ export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[
       sLevel += 1.3;
       sera.add('dolore');
     }
+    if (day.sport.length) {
+      pLevel -= 0.5;
+      sLevel -= 0.5;
+    }
     if (day.drinks >= 3) {
       sLevel += 1;
       sera.add('gonfiore');
@@ -106,6 +113,7 @@ export function generateDemo(days = 120, seed = 42, end = todayISO()): DayEntry[
       sleep: day.sleep,
       bigDinner: day.bigDinner || undefined,
       drinks: day.drinks,
+      sport: day.sport.length ? day.sport : undefined,
       symptoms: {},
       moments: {
         mattina: moment(mLevel, mattina),

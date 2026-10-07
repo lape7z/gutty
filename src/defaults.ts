@@ -43,11 +43,12 @@ export const DEFAULT_FOODS: Food[] = Object.entries(CATALOG).flatMap(([category,
 
 export const FOOD_CATEGORIES = Object.keys(CATALOG);
 
-/** Fattori di stile di vita (stress, sonno, cena, quantità di alcol), analizzati come gli alimenti. */
+/** Fattori di stile di vita (stress, sonno, cena, quantità di alcol, sport), analizzati come gli alimenti. */
 export const LIFESTYLE_FACTORS = {
   'stress-alto': 'Stress alto',
   'sonno-scarso': 'Dormito male',
   'cena-pesante': 'Cena abbondante o tardiva',
   'alcol-1-2': '1-2 bicchieri di alcol',
   'alcol-3-piu': '3 o più bicchieri di alcol',
+  sport: 'Attività sportiva',
 } as const;

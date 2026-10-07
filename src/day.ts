@@ -14,6 +14,13 @@ export const MOMENT_INFO: { id: Moment; label: string; hint: string }[] = [
   { id: 'sera', label: 'Sera e notte', hint: 'dopo cena e di notte' },
 ];
 
+/** Quando si è fatta attività sportiva: gli stessi momenti dei sintomi, con nomi più brevi. */
+export const SPORT_TIMES: { id: Moment; label: string }[] = [
+  { id: 'mattina', label: 'Mattina' },
+  { id: 'pomeriggio', label: 'Pomeriggio' },
+  { id: 'sera', label: 'Sera' },
+];
+
 /** I cinque livelli rapidi (0-4), dal meglio al peggio. */
 export const LEVELS: { face: Face; label: string }[] = [
   { face: 'happy', label: 'Bene' },

@@ -30,6 +30,8 @@ export interface DayEntry {
   bigDinner?: boolean;
   /** Bicchieri di alcol nella giornata (assente = non indicato). */
   drinks?: number;
+  /** In quali momenti della giornata hai fatto attività sportiva (assente = nessuna). */
+  sport?: Moment[];
   notes?: string;
   updatedAt: number;
 }

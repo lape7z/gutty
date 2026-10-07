@@ -105,3 +105,18 @@ export function byDrinks(entries: DayEntry[], all: DayEntry[], symptomIds: strin
   }
   return groups.map(bucket);
 }
+
+/**
+ * Media della giornata senza sport e con sport in ciascun momento: indice 0 = nessuno,
+ * 1 = mattina, 2 = pomeriggio, 3 = sera. Un giorno con sport in due momenti conta in entrambi.
+ */
+export function bySport(entries: DayEntry[], symptomIds: string[]): Bucket[] {
+  const groups: number[][] = Array.from({ length: 4 }, () => []);
+  for (const e of entries) {
+    const s = dayScore(e, symptomIds, { kind: 'overall' });
+    if (s === undefined) continue;
+    if (!e.sport?.length) groups[0].push(s);
+    for (const m of e.sport ?? []) groups[MOMENTS.indexOf(m) + 1].push(s);
+  }
+  return groups.map(bucket);
+}

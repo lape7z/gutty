@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bristolCounts, byDrinks, byLevel, byMoment, byWeekday, inRange, movingAverage, symptomFrequency } from './stats';
+import { bristolCounts, byDrinks, byLevel, bySport, byMoment, byWeekday, inRange, movingAverage, symptomFrequency } from './stats';
 import type { DayEntry } from './types';
 
 const day = (date: string, extra: Partial<DayEntry> = {}): DayEntry => ({ date, foods: [], symptoms: {}, updatedAt: 0, ...extra });
@@ -82,5 +82,21 @@ describe('stats', () => {
     expect(r[4].mean).toBeGreaterThan(2); // la sera (2) e la mattina dopo (4)
     expect(r[5]).toEqual({ mean: 1, n: 1 });
     expect(r.reduce((a, b) => a + b.n, 0)).toBe(3);
+  });
+
+  it('bySport separa i giorni senza sport e conta ogni momento in cui lo hai fatto', () => {
+    const m = (level: number) => ({ level, symptoms: [] });
+    const e = [
+      day('2026-09-01', { moments: { sera: m(3) } }),
+      day('2026-09-02', { sport: ['mattina'], moments: { sera: m(1) } }),
+      day('2026-09-03', { sport: ['mattina', 'sera'], moments: { sera: m(0) } }),
+      day('2026-09-04', { sport: ['pomeriggio'] }), // nessun sintomo segnato: non conta
+    ];
+    expect(bySport(e, [])).toEqual([
+      { mean: 3, n: 1 },
+      { mean: 0.5, n: 2 },
+      { mean: undefined, n: 0 },
+      { mean: 0, n: 1 },
+    ]);
   });
 });

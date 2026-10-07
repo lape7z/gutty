@@ -1867,3 +1867,18 @@ details.disclosure .body {
 .food-item .group-editor {
   padding: 4px 0 6px;
 }
+
+/* Attività sportiva */
+.sport-times {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.sport-times .pill {
+  padding: 0 8px;
+}
+.sport-hint {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}

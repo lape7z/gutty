@@ -48,6 +48,15 @@ function exposure(id: string, name: string, lag: LagKey): string {
       '2': `Due giorni dopo ${q}`,
     }[lag];
   }
+  if (id === 'sport') {
+    return {
+      '24h': 'Nelle 24 ore dopo l’attività sportiva',
+      '0': 'Nei giorni in cui fai sport',
+      '1': 'Il giorno dopo aver fatto sport',
+      '01': 'Quando hai fatto sport quel giorno o il precedente',
+      '2': 'Due giorni dopo aver fatto sport',
+    }[lag];
+  }
   if (id === 'sonno-scarso') {
     return {
       '24h': 'Nei giorni in cui hai dormito male',

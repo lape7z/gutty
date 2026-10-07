@@ -79,12 +79,13 @@ describe('compatibilità con i diari già inseriti', () => {
 
   it('i nuovi campi si salvano e tornano anche dal backup', async () => {
     await db.foods.bulkPut(oldFoods);
-    await saveDay({ ...oldDays[1], drinks: 3 });
+    await saveDay({ ...oldDays[1], drinks: 3, sport: ['mattina'] });
     await db.foods.update('focaccia', { groups: ['g-frumento', 'g-grassi'] });
     const backup = await exportBackup();
     await wipeAll();
     await importBackup(backup);
     expect((await db.days.get('2026-08-02'))?.drinks).toBe(3);
+    expect((await db.days.get('2026-08-02'))?.sport).toEqual(['mattina']);
     expect((await db.foods.get('focaccia'))?.groups).toEqual(['g-frumento', 'g-grassi']);
   });
 

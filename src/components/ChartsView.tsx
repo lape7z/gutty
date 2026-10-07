@@ -3,7 +3,7 @@ import { MOMENTS } from '../analysis';
 import { addDays, daysBetween, todayISO } from '../date';
 import { MOMENT_INFO } from '../day';
 import { overallScore, useActiveSymptoms, useDays, useFactorNames, useFoods } from '../hooks';
-import { bristolCounts, byDrinks, byLevel, byMoment, byWeekday, inRange, symptomFrequency, type Bucket } from '../stats';
+import { bristolCounts, byDrinks, byLevel, bySport, byMoment, byWeekday, inRange, symptomFrequency, type Bucket } from '../stats';
 import { levelWord, num } from '../ui';
 import { ColumnChart, RowChart, type BarItem } from './Bars';
 import { TrendChart, type TrendPoint } from './TrendChart';
@@ -153,6 +153,26 @@ export function ChartsView() {
   const st = compare(stress, [0, 1], [3, 4]);
   const sl = compare(sleep, [0, 1], [3, 4]);
 
+  // --- Sport
+  const sport = bySport(entries, ids);
+  const sportDays = entries.filter((e) => e.sport?.length && overallScore(e, symptoms) !== undefined).length;
+  const withSport = pooled(sport, [1, 2, 3]);
+  const bestTime = [1, 2, 3].filter((i) => sport[i].n >= 2).sort((a, b) => sport[a].mean! - sport[b].mean!)[0];
+  const sportText =
+    sportDays === 0
+      ? 'Ancora nessuna attività sportiva segnata in questo periodo.'
+      : sport[0].mean === undefined || withSport === undefined
+        ? 'Servono anche giornate senza sport per fare il confronto.'
+        : sportDays < 4
+          ? 'Ancora poche giornate con sport per un confronto.'
+          : sport[0].mean - withSport >= NOTABLE
+            ? `Nei giorni con sport i sintomi sono in media ${num(withSport)}, senza ${num(sport[0].mean)}${
+                bestTime !== undefined ? `; va meglio quando lo fai ${['la mattina', 'il pomeriggio', 'la sera'][bestTime - 1]}` : ''
+              }.`
+            : withSport - sport[0].mean >= NOTABLE
+              ? `Nei giorni con sport i sintomi sono un po’ più alti: ${num(withSport)} contro ${num(sport[0].mean)}.`
+              : 'Per ora lo sport non sembra cambiare molto i sintomi.';
+
   // --- Alcol: 0, 1-2 e 3 o più bicchieri, sintomi nelle 24 ore dopo
   const drinks = byDrinks(entries, days ?? [], ids, foods);
   const al = { none: pooled(drinks, [0]), few: pooled(drinks, [1, 2]), many: pooled(drinks, [3, 4, 5]) };
@@ -248,6 +268,20 @@ export function ChartsView() {
           }))}
           max={Math.max(1, ...bristol)}
           format={(v) => String(v)}
+        />
+      </Card>
+
+      <Card title="Sport" takeaway={sportText} foot="Media della giornata, da 0 (bene) a 4 (malissimo).">
+        <ColumnChart
+          label="Sintomi con e senza attività sportiva"
+          items={levelItems(
+            ['No', 'Mattina', 'Pom.', 'Sera'],
+            sport,
+            'giornate',
+            ['Senza sport', 'Sport la mattina', 'Sport il pomeriggio', 'Sport la sera'],
+          )}
+          max={4}
+          format={num}
         />
       </Card>
 

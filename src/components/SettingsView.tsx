@@ -8,7 +8,7 @@ import { FOOD_CATEGORIES, slugify } from '../defaults';
 import { generateDemo } from '../demo';
 import { suggestCategory, suggestGroups } from '../groups';
 import { FoodGroupEditor, groupSummary } from './FoodGroups';
-import { LEVELS, MEALS, MOMENT_INFO, mealsOf } from '../day';
+import { LEVELS, MEALS, MOMENT_INFO, SPORT_TIMES, mealsOf } from '../day';
 import { useFactorNames, useFoods, useSymptoms } from '../hooks';
 import type { DayEntry, Moment } from '../types';
 import { Icon, Mascot, Sec } from '../ui';
@@ -102,6 +102,7 @@ export function SettingsView() {
       ...MEALS.map((m) => m.label),
       'cena abbondante o tardiva',
       'bicchieri di alcol',
+      'sport',
       'note',
     ];
     const rows = days
@@ -118,6 +119,7 @@ export function SettingsView() {
           ...MEALS.map((m) => meals[m.id].map(nameOf).join(', ')),
           d.bigDinner ? 'sì' : '',
           d.drinks,
+          d.sport?.map((m) => SPORT_TIMES.find((t) => t.id === m)?.label.toLowerCase()).join(', '),
           d.notes,
         ];
       });
