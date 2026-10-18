@@ -1,22 +1,35 @@
 import { useState } from 'react';
 import { db } from '../db';
-import { FOOD_CATEGORIES } from '../defaults';
-import { GROUPS, groupName, groupsOf } from '../groups';
+import { GROUPS, SHELVES, groupName, groupsOf, shelvesOf } from '../groups';
 import type { Food } from '../types';
 
-/** Elenco breve dei gruppi di un cibo, es. "Frumento e glutine · Pomodoro e sughi". */
+/** Voce del menù per i cibi che l'app non ha ancora capito. */
+export const UNSORTED = 'altro';
+
+export function shelfLabel(id: string): string {
+  return id === UNSORTED ? 'Da completare' : (groupName(id) ?? id);
+}
+
+/** Voci del menù che contengono almeno un cibo, nell'ordine dei gruppi; "Da completare" in fondo. */
+export function availableShelves(foods: Food[]): string[] {
+  const used = new Set(foods.flatMap((f) => shelvesOf(f)));
+  return [...SHELVES.map((g) => g.id), UNSORTED].filter((id) => used.has(id));
+}
+
+/** Elenco breve dei gruppi di un cibo, es. "Pasta, pane e pizza · Pomodoro e sughi". */
 export function groupSummary(food: Pick<Food, 'name' | 'groups'>): string {
   const g = groupsOf(food);
-  return g.length ? g.map((id) => groupName(id)).join(' · ') : 'Nessun gruppo';
+  return g.length ? g.map((id) => groupName(id)).join(' · ') : 'Non ancora riconosciuto';
 }
 
 /**
- * Modifica di gruppi e categoria di un cibo. I gruppi suggeriti dal nome partono già selezionati;
- * toccandone uno lo si aggiunge o toglie. Le scelte vengono salvate sul cibo.
+ * Cosa contiene un cibo. I gruppi riconosciuti dal nome partono già selezionati; toccandone uno lo
+ * si aggiunge o toglie, e la scelta viene salvata sul cibo. Se il nome non dice nulla all'app,
+ * mostra subito tutti i gruppi e chiede di sceglierli.
  */
-export function FoodGroupEditor({ food, categories, onDone }: { food: Food; categories: string[]; onDone?: () => void }) {
+export function FoodGroupEditor({ food, onDone }: { food: Food; onDone?: () => void }) {
   const current = groupsOf(food);
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(current.length === 0);
   const visible = showAll ? GROUPS : GROUPS.filter((g) => current.includes(g.id));
 
   const toggle = (id: string) => {
@@ -26,19 +39,12 @@ export function FoodGroupEditor({ food, categories, onDone }: { food: Food; cate
 
   return (
     <div className="group-editor">
-      <div className="ge-row">
-        <span className="faint small">Categoria</span>
-        <label className="field ge-select">
-          <span className="sr-only">Categoria di {food.name}</span>
-          <select value={food.category} onChange={(e) => void db.foods.update(food.id, { category: e.target.value })}>
-            {[...new Set([...FOOD_CATEGORIES, ...categories, food.category])].map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="faint small" style={{ margin: '12px 0 8px' }}>
-        {current.length ? 'Contiene (per l’analisi per gruppi):' : 'Nessun gruppo riconosciuto: scegline uno o più.'}
+      <div className="faint small" style={{ margin: '4px 0 8px' }}>
+        {current.length === 0
+          ? `Non conosco ancora “${food.name}”: tocca cosa contiene, così l’analisi lo conta insieme ai cibi simili.`
+          : showAll
+            ? 'Tocca per aggiungere o togliere:'
+            : 'Contiene:'}
       </div>
       <div className="chips">
         {visible.map((g) => (
@@ -48,9 +54,11 @@ export function FoodGroupEditor({ food, categories, onDone }: { food: Food; cate
         ))}
       </div>
       <div className="row-actions" style={{ marginTop: 10 }}>
-        <button className="btn link" onClick={() => setShowAll((v) => !v)}>
-          {showAll ? 'Mostra solo quelli scelti' : current.length ? 'Modifica gruppi' : 'Scegli i gruppi'}
-        </button>
+        {current.length > 0 && (
+          <button className="btn link" onClick={() => setShowAll((v) => !v)}>
+            {showAll ? 'Mostra solo quelli scelti' : 'Correggi'}
+          </button>
+        )}
         {onDone && (
           <button className="btn link" onClick={onDone}>
             Fatto

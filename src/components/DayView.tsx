@@ -2,11 +2,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, todayISO } from '../date';
 import { db, emptyDay, saveDay } from '../db';
-import { DEFAULT_MEDS, FOOD_CATEGORIES, medId, slugify } from '../defaults';
+import { DEFAULT_MEDS, medId, slugify } from '../defaults';
 import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods, useMeds } from '../hooks';
 import { backupDue, saveBackup, snoozeBackup } from '../backup';
-import { isAlcoholic, suggestCategory, suggestGroups } from '../groups';
-import { FoodGroupEditor, groupSummary } from './FoodGroups';
+import { groupsOf, isAlcoholic, normalizeName, shelvesOf } from '../groups';
+import { FoodGroupEditor, availableShelves, groupSummary, shelfLabel } from './FoodGroups';
 import { LEVELS, MEALS, MOMENT_INFO, SPORT_TIMES, mealNow, mealsOf, momentNow, withMeals } from '../day';
 import type { DayEntry, Food, Meal, Moment, MomentLog } from '../types';
 import { Icon, Mascot, Sec, dayMood, heatLevel, levelWord, type Face } from '../ui';
@@ -91,8 +91,8 @@ export function DayView({ date, onDateChange }: Props) {
     else setMealFoods(meal, [...list, id], foods.find((f) => f.id === id));
   };
 
-  // Un cibo nuovo prende categoria e gruppi dal nome (focaccia → Frumento, pasta al ragù → Piatti).
-  // I gruppi non vengono salvati finché non li si modifica: così migliorano con le regole future.
+  // Un cibo nuovo prende i gruppi dal nome (focaccia → pasta e pane, anolini → pasta, uova, formaggio, carne).
+  // I gruppi non vengono salvati finché non li si modifica: così migliorano con il vocabolario futuro.
   const addFood = async (name: string): Promise<string | undefined> => {
     const clean = name.trim();
     if (!clean) return;
@@ -104,7 +104,7 @@ export function DayView({ date, onDateChange }: Props) {
       food = existing;
       if (existing.archived) await db.foods.update(id, { archived: false });
     } else {
-      food = { id, name: clean, category: suggestCategory(suggestGroups(clean)) };
+      food = { id, name: clean };
       await db.foods.add(food);
     }
     if (!meals[meal].includes(id)) setMealFoods(meal, [...meals[meal], id], food);
@@ -619,13 +619,18 @@ function FoodPicker({
   const [search, setSearch] = useState('');
   const [added, setAdded] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [category, setCategory] = useState(FOOD_CATEGORIES[0]);
   const byId = useMemo(() => new Map(foods.map((f) => [f.id, f])), [foods]);
   const active = foods.filter((f) => !f.archived);
-  const categories = [...new Set([...FOOD_CATEGORIES, ...active.map((f) => f.category)])];
+  const shelves = availableShelves(active);
+  const [chosenShelf, setShelf] = useState<string | null>(null);
+  const shelf = chosenShelf && shelves.includes(chosenShelf) ? chosenShelf : shelves[0];
 
   const q = search.trim().toLowerCase();
-  const results = q ? active.filter((f) => f.name.toLowerCase().includes(q)) : [];
+  // La ricerca guarda anche i gruppi: "frutta" trova kiwi, fragole e mele.
+  const nq = normalizeName(q);
+  const results = q
+    ? active.filter((f) => f.name.toLowerCase().includes(q) || (nq.length >= 3 && groupsOf(f).some((g) => normalizeName(shelfLabel(g)).includes(nq))))
+    : [];
   const exact = foods.some((f) => f.name.toLowerCase() === q);
   const frequentFoods = frequent
     .map((id) => byId.get(id))
@@ -663,7 +668,7 @@ function FoodPicker({
         </div>
       )}
       {added && byId.get(added) && (
-        <NewFoodCard food={byId.get(added)!} foods={foods} editing={editing} onEdit={() => setEditing(true)} onClose={() => setAdded(null)} />
+        <NewFoodCard food={byId.get(added)!} editing={editing} onEdit={() => setEditing(true)} onClose={() => setAdded(null)} />
       )}
       {onCopyYesterday && (
         <button className="btn link" style={{ marginTop: 8, marginLeft: -4 }} onClick={onCopyYesterday}>
@@ -718,17 +723,18 @@ function FoodPicker({
               </div>
             </>
           )}
-          <div className="sub-label">Tutte le categorie</div>
-          <div className="pills" role="group" aria-label="Categorie">
-            {categories.map((c) => (
-              <button key={c} className="pill" aria-pressed={c === category} onClick={() => setCategory(c)}>
-                {c}
+          <div className="sub-label">Sfoglia</div>
+          <div className="pills" role="group" aria-label="Gruppi di alimenti">
+            {shelves.map((c) => (
+              <button key={c} className="pill" aria-pressed={c === shelf} onClick={() => setShelf(c)}>
+                {shelfLabel(c)}
               </button>
             ))}
           </div>
           <div className="chips" style={{ marginTop: 10 }}>
             {active
-              .filter((f) => f.category === category)
+              .filter((f) => shelvesOf(f).includes(shelf))
+              .sort((a, b) => a.name.localeCompare(b.name, 'it'))
               .map((f) => (
                 <button key={f.id} className="chip" aria-pressed={selected.includes(f.id)} onClick={() => onToggle(f.id)}>
                   {f.name}
@@ -741,29 +747,30 @@ function FoodPicker({
   );
 }
 
-/** Dopo aver creato un cibo: mostra in che gruppi è stato messo, con la possibilità di correggere. */
-function NewFoodCard({ food, foods, editing, onEdit, onClose }: { food: Food; foods: Food[]; editing: boolean; onEdit: () => void; onClose: () => void }) {
-  const categories = [...new Set(foods.map((f) => f.category))];
+/**
+ * Dopo aver creato un cibo: dice che cosa ha capito ("contiene pasta, uova, formaggio, carne").
+ * Se non l'ha capito, chiede subito cosa contiene invece di lasciarlo senza gruppo.
+ */
+function NewFoodCard({ food, editing, onEdit, onClose }: { food: Food; editing: boolean; onEdit: () => void; onClose: () => void }) {
+  const known = groupsOf(food).length > 0;
+  // Se all'inizio non l'aveva capito, l'elenco dei gruppi resta aperto finché non si tocca "Fatto".
+  const [askedFromStart] = useState(!known);
   return (
-    <div className="new-food" role="status">
+    <div className={`new-food${known ? '' : ' unknown'}`} role="status">
       <div className="nf-head">
         <div>
           <strong>“{food.name}” aggiunto</strong>
-          {!editing && (
-            <div className="faint small">
-              {food.category} · {groupSummary(food)}
-            </div>
-          )}
+          {known && !editing && <div className="faint small">Contiene: {groupSummary(food)}</div>}
         </div>
         <button className="icon-btn" aria-label="Chiudi" onClick={onClose}>
           <Icon name="x" size={16} />
         </button>
       </div>
-      {editing ? (
-        <FoodGroupEditor food={food} categories={categories} onDone={onClose} />
+      {editing || askedFromStart ? (
+        <FoodGroupEditor food={food} onDone={onClose} />
       ) : (
         <button className="btn link" style={{ marginLeft: -4 }} onClick={onEdit}>
-          Correggi i gruppi
+          Correggi
         </button>
       )}
     </div>

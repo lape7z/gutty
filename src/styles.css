@@ -1968,3 +1968,19 @@ details.disclosure .body {
 a.btn {
   text-decoration: none;
 }
+.pill-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--worse, #e06d4e);
+}
+.new-food.unknown {
+  background: color-mix(in srgb, var(--worse, #e06d4e) 9%, var(--card));
+}

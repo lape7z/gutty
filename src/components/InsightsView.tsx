@@ -100,7 +100,7 @@ export function InsightsView() {
   const foods = useFoods();
   const nameOf = useFactorNames();
   // Per gruppi: focaccia, pane e pasta contano insieme come "Frumento e glutine".
-  const [byGroup, setByGroup] = useState(false);
+  const [byGroup, setByGroup] = useState(true);
   const [targetKey, setTargetKey] = useState('overall');
   const [lagKey, setLagKey] = useState<LagKey>('24h');
   const [showWeak, setShowWeak] = useState(false);
@@ -161,19 +161,18 @@ export function InsightsView() {
           Confronta
         </div>
         <div className="pills" role="group" aria-label="Cosa confrontare">
-          <button className="pill" aria-pressed={!byGroup} onClick={() => setByGroup(false)}>
-            Singoli alimenti
-          </button>
           <button className="pill" aria-pressed={byGroup} onClick={() => setByGroup(true)}>
-            Gruppi di alimenti
+            Per gruppo
+          </button>
+          <button className="pill" aria-pressed={!byGroup} onClick={() => setByGroup(false)}>
+            Per singolo cibo
           </button>
         </div>
-        {byGroup && (
-          <p className="faint small" style={{ margin: '8px 2px 0' }}>
-            Cibi simili contano insieme (pane, focaccia e pasta → frumento) e i piatti composti valgono per ciò che contengono (pasta al ragù →
-            frumento, pomodoro, carne, cipolla). Più giornate per gruppo, confronti più solidi.
-          </p>
-        )}
+        <p className="faint small" style={{ margin: '8px 2px 0' }}>
+          {byGroup
+            ? 'Cibi simili contano insieme (pane, focaccia, anolini → pasta, pane e pizza) e i piatti valgono per ciò che contengono. Con più giornate per gruppo i confronti sono più affidabili.'
+            : 'Ogni cibo per conto suo: utile quando hai già molte giornate e vuoi capire quale cibo preciso dà fastidio.'}
+        </p>
         <div className="field-label" style={{ marginTop: 16 }}>
           Quando compaiono
         </div>

@@ -41,7 +41,6 @@ export const DEFAULT_FOODS: Food[] = Object.entries(CATALOG).flatMap(([category,
   names.map((name) => ({ id: slugify(name), name, category })),
 );
 
-export const FOOD_CATEGORIES = Object.keys(CATALOG);
 
 /**
  * Integratori e farmaci più comuni che possono influire sull'intestino. Nomi generici, non marchi.

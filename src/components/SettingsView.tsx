@@ -4,10 +4,10 @@ import { dayScore } from '../analysis';
 import { todayISO } from '../date';
 import { lastBackupAt, restoreSnapshot, saveBackup, snapshotInfo, takeSnapshot } from '../backup';
 import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
-import { FOOD_CATEGORIES, medId, slugify } from '../defaults';
+import { medId, slugify } from '../defaults';
 import { generateDemo } from '../demo';
-import { suggestCategory, suggestGroups } from '../groups';
-import { FoodGroupEditor, groupSummary } from './FoodGroups';
+import { groupsOf, shelvesOf, suggestGroups } from '../groups';
+import { FoodGroupEditor, UNSORTED, availableShelves, groupSummary, shelfLabel } from './FoodGroups';
 import { LEVELS, MEALS, MOMENT_INFO, SPORT_TIMES, mealsOf } from '../day';
 import { useFactorNames, useFoods, useMeds, useSymptoms } from '../hooks';
 import type { DayEntry, Moment } from '../types';
@@ -64,12 +64,12 @@ export function SettingsView() {
     }
   };
   const [newFood, setNewFood] = useState('');
-  const [newFoodCat, setNewFoodCat] = useState(''); // '' = scelta in automatico dal nome
   const [openFood, setOpenFood] = useState<string | null>(null);
   const [newSymptom, setNewSymptom] = useState('');
-  const [browseCat, setBrowseCat] = useState(FOOD_CATEGORIES[0]);
-
-  const categories = [...new Set([...FOOD_CATEGORIES, ...foods.map((f) => f.category)])];
+  const shelves = availableShelves(foods);
+  const unsorted = foods.filter((f) => !f.archived && groupsOf(f).length === 0).length;
+  const [chosenShelf, setBrowseShelf] = useState<string | null>(null);
+  const browseShelf = chosenShelf && shelves.includes(chosenShelf) ? chosenShelf : shelves[0];
 
   const exportJson = async () => {
     setManualCopy(null);
@@ -180,15 +180,13 @@ export function SettingsView() {
     if (!name) return;
     const id = slugify(name) || `alimento-${Date.now()}`;
     const existing = await db.foods.get(id);
-    const category = newFoodCat || existing?.category || suggestCategory(suggestGroups(name));
     if (existing) {
-      await db.foods.update(id, { archived: false, category });
+      await db.foods.update(id, { archived: false });
     } else {
-      await db.foods.add({ id, name, category });
+      await db.foods.add({ id, name });
     }
     setNewFood('');
-    setNewFoodCat('');
-    setBrowseCat(category);
+    setBrowseShelf(shelvesOf(existing ?? { name })[0]);
     setOpenFood(id);
   };
 
@@ -421,7 +419,7 @@ export function SettingsView() {
         </ul>
       </section>
 
-      <Sec title="Alimenti" aside={`${foods.filter((f) => !f.archived).length} attivi`} />
+      <Sec title="Alimenti" aside={unsorted ? `${unsorted} da completare` : `${foods.filter((f) => !f.archived).length} attivi`} />
       <section className="sheet">
         <form
           style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
@@ -434,38 +432,33 @@ export function SettingsView() {
             <Icon name="plus" size={18} />
             <input placeholder="Nuovo alimento o bevanda" value={newFood} onChange={(e) => setNewFood(e.target.value)} />
           </label>
-          <label className="field" style={{ flex: '0 1 170px' }}>
-            <span className="sr-only">Categoria</span>
-            <select value={newFoodCat} onChange={(e) => setNewFoodCat(e.target.value)}>
-              <option value="">
-                {newFood.trim() ? `Auto: ${suggestCategory(suggestGroups(newFood))}` : 'Categoria automatica'}
-              </option>
-              {categories.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-          </label>
           {newFood.trim() && (
             <button className="btn primary" type="submit">
               Aggiungi
             </button>
           )}
         </form>
-        {newFood.trim() && <p className="faint small" style={{ margin: '8px 2px 0' }}>Contiene: {groupSummary({ name: newFood })}</p>}
+        {newFood.trim() && (
+          <p className="faint small" style={{ margin: '8px 2px 0' }}>
+            {suggestGroups(newFood).length ? `Contiene: ${groupSummary({ name: newFood })}` : 'Non lo riconosco: dopo ti chiederò cosa contiene.'}
+          </p>
+        )}
         <p className="faint small" style={{ margin: '12px 2px 0' }}>
-          Ogni alimento appartiene a uno o più gruppi (es. focaccia e pane → Frumento e glutine): così l’analisi li conta insieme. Tocca un
-          alimento per vedere o correggere i suoi gruppi.
+          Ogni alimento sta in uno o più gruppi: focaccia e pane → Pasta, pane e pizza; anolini → pasta, uova, formaggio e carne. L’analisi conta
+          insieme i cibi dello stesso gruppo. Tocca un alimento per vedere o correggere cosa contiene.
         </p>
-        <div className="pills" style={{ marginTop: 16 }} role="group" aria-label="Categoria">
-          {categories.map((c) => (
-            <button key={c} className="pill" aria-pressed={browseCat === c} onClick={() => setBrowseCat(c)}>
-              {c}
+        <div className="pills" style={{ marginTop: 16 }} role="group" aria-label="Gruppi di alimenti">
+          {shelves.map((c) => (
+            <button key={c} className="pill" aria-pressed={browseShelf === c} onClick={() => setBrowseShelf(c)}>
+              {shelfLabel(c)}
+              {c === UNSORTED && unsorted > 0 && <span className="pill-count">{unsorted}</span>}
             </button>
           ))}
         </div>
         <ul className="list" style={{ marginTop: 6 }}>
           {foods
-            .filter((f) => f.category === browseCat)
+            .filter((f) => shelvesOf(f).includes(browseShelf) || f.id === openFood) // resta visibile mentre lo modifichi
+            .sort((a, b) => a.name.localeCompare(b.name, 'it'))
             .map((f) => (
               <li key={f.id} className={`food-item${f.archived ? ' off' : ''}`}>
                 <div className="food-line">
@@ -481,7 +474,7 @@ export function SettingsView() {
                     onClick={() => db.foods.update(f.id, { archived: !f.archived })}
                   />
                 </div>
-                {openFood === f.id && <FoodGroupEditor food={f} categories={categories} onDone={() => setOpenFood(null)} />}
+                {openFood === f.id && <FoodGroupEditor food={f} onDone={() => setOpenFood(null)} />}
               </li>
             ))}
         </ul>

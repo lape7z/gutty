@@ -41,7 +41,8 @@ export interface DayEntry {
 export interface Food {
   id: string;
   name: string;
-  category: string;
+  /** Vecchia categoria del menù: non più usata (ora contano solo i gruppi), resta nei dati salvati. */
+  category?: string;
   /**
    * Gruppi alimentari (es. ["g-frumento"]). Assente nei cibi salvati prima di questa funzione:
    * in quel caso i gruppi si ricavano dal nome, quindi non serve modificare i dati esistenti.
