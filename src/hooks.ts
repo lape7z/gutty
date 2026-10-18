@@ -10,8 +10,21 @@ const EMPTY_FOODS: Food[] = [];
 const EMPTY_SYMPTOMS: Symptom[] = [];
 const EMPTY_DAYS: DayEntry[] = [];
 
-export function useFoods(): Food[] {
+/** Tutto il catalogo: alimenti, integratori e farmaci. */
+export function useCatalog(): Food[] {
   return useLiveQuery(() => db.foods.toArray(), [], EMPTY_FOODS);
+}
+
+/** Solo gli alimenti e le bevande. */
+export function useFoods(): Food[] {
+  const all = useCatalog();
+  return useMemo(() => all.filter((f) => f.kind !== 'med'), [all]);
+}
+
+/** Solo integratori e farmaci. */
+export function useMeds(): Food[] {
+  const all = useCatalog();
+  return useMemo(() => all.filter((f) => f.kind === 'med'), [all]);
 }
 
 export function useSymptoms(): Symptom[] {
@@ -34,7 +47,7 @@ export function useDaysOrEmpty(): DayEntry[] {
 
 /** Nome leggibile per un alimento, un gruppo di alimenti o un fattore di stile di vita. */
 export function useFactorNames(): (id: string) => string {
-  const foods = useFoods();
+  const foods = useCatalog();
   return useMemo(() => {
     const map = new Map<string, string>(foods.map((f) => [f.id, f.name]));
     for (const [id, name] of Object.entries(LIFESTYLE_FACTORS)) map.set(id, name);

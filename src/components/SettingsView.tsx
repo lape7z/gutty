@@ -4,12 +4,12 @@ import { dayScore } from '../analysis';
 import { todayISO } from '../date';
 import { lastBackupAt, restoreSnapshot, saveBackup, snapshotInfo, takeSnapshot } from '../backup';
 import { db, exportBackup, importBackup, replaceDays, wipeAll } from '../db';
-import { FOOD_CATEGORIES, slugify } from '../defaults';
+import { FOOD_CATEGORIES, medId, slugify } from '../defaults';
 import { generateDemo } from '../demo';
 import { suggestCategory, suggestGroups } from '../groups';
 import { FoodGroupEditor, groupSummary } from './FoodGroups';
 import { LEVELS, MEALS, MOMENT_INFO, SPORT_TIMES, mealsOf } from '../day';
-import { useFactorNames, useFoods, useSymptoms } from '../hooks';
+import { useFactorNames, useFoods, useMeds, useSymptoms } from '../hooks';
 import type { DayEntry, Moment } from '../types';
 import { Icon, Mascot, Sec } from '../ui';
 import { VAPID_PUBLIC_KEY, disableReminder, prepareReminder, pushSupport, reminderState, saveReminderState } from '../push';
@@ -104,6 +104,7 @@ export function SettingsView() {
       'cena abbondante o tardiva',
       'bicchieri di alcol',
       'sport',
+      'integratori e farmaci',
       'note',
     ];
     const rows = days
@@ -121,6 +122,7 @@ export function SettingsView() {
           d.bigDinner ? 'sì' : '',
           d.drinks,
           d.sport?.map((m) => SPORT_TIMES.find((t) => t.id === m)?.label.toLowerCase()).join(', '),
+          d.meds?.map(nameOf).join(', '),
           d.notes,
         ];
       });
@@ -485,6 +487,8 @@ export function SettingsView() {
         </ul>
       </section>
 
+      <MedsSettings />
+
       <footer className="colophon">
         <Mascot face="happy" size={48} still />
         Gutty · il tuo diario della pancia
@@ -635,6 +639,67 @@ function ReminderCard() {
             {error}
           </p>
         )}
+      </section>
+    </>
+  );
+}
+
+/** Elenco di integratori e farmaci: aggiungerne, o nasconderli dalla giornata senza perdere lo storico. */
+function MedsSettings() {
+  const meds = useMeds();
+  const [name, setName] = useState('');
+
+  const add = async () => {
+    const clean = name.trim();
+    if (!clean) return;
+    const existing = meds.find((m) => m.name.toLowerCase() === clean.toLowerCase());
+    if (existing) await db.foods.update(existing.id, { archived: false });
+    else {
+      let id = medId(clean);
+      if (await db.foods.get(id)) id = `${id}-${Date.now()}`;
+      await db.foods.add({ id, name: clean, category: 'Altro', kind: 'med' });
+    }
+    setName('');
+  };
+
+  return (
+    <>
+      <Sec title="Integratori e farmaci" aside={`${meds.filter((m) => !m.archived).length} attivi`} />
+      <section className="sheet">
+        <form
+          style={{ display: 'flex', gap: 8 }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void add();
+          }}
+        >
+          <label className="field" style={{ flex: 1 }}>
+            <Icon name="plus" size={18} />
+            <input placeholder="Nuovo integratore o farmaco" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          {name.trim() && (
+            <button className="btn primary" type="submit">
+              Aggiungi
+            </button>
+          )}
+        </form>
+        <p className="faint small" style={{ margin: '12px 2px 0' }}>
+          Spegni quelli che non prendi mai: spariscono dalla giornata, ma restano nello storico.
+        </p>
+        <ul className="list" style={{ marginTop: 6 }}>
+          {meds.map((m) => (
+            <li key={m.id} className={m.archived ? 'off' : ''}>
+              <span className="name">{m.name}</span>
+              <button
+                className="switch"
+                role="switch"
+                aria-checked={!m.archived}
+                aria-label={`Mostra ${m.name} nella giornata`}
+                onClick={() => db.foods.update(m.id, { archived: !m.archived })}
+              />
+            </li>
+          ))}
+        </ul>
       </section>
     </>
   );

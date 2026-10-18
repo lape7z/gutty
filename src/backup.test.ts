@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { backupDue, restoreSnapshot, snapshotInfo, takeSnapshot } from './backup';
 import Dexie from 'dexie';
 import { analyze, dayScore } from './analysis';
-import { db, exportBackup, importBackup, replaceDays, saveDay, wipeAll } from './db';
+import { db, ensureMeds, exportBackup, importBackup, replaceDays, saveDay, wipeAll } from './db';
+import { DEFAULT_MEDS } from './defaults';
 import { drinksOf, entriesByGroup, groupsOf } from './groups';
 import { byDrinks } from './stats';
 import { generateDemo } from './demo';
@@ -87,6 +88,32 @@ describe('compatibilità con i diari già inseriti', () => {
     expect((await db.days.get('2026-08-02'))?.drinks).toBe(3);
     expect((await db.days.get('2026-08-02'))?.sport).toEqual(['mattina']);
     expect((await db.foods.get('focaccia'))?.groups).toEqual(['g-frumento', 'g-grassi']);
+  });
+
+  it('chi aveva già l’app riceve la lista di integratori una volta sola, senza perdere nulla', async () => {
+    // Database come quello di una versione precedente: alimenti e giornate, nessun integratore.
+    await db.foods.clear();
+    await db.foods.bulkPut(oldFoods);
+    await db.days.bulkPut(oldDays);
+    await ensureMeds();
+    expect(await db.foods.filter((f) => f.kind === 'med').count()).toBe(DEFAULT_MEDS.length);
+    expect(await db.foods.bulkGet(oldFoods.map((f) => f.id))).toEqual(oldFoods);
+    expect(await db.days.toArray()).toEqual(oldDays);
+
+    // Le volte successive non aggiunge nulla, anche se l'utente ne ha spenti alcuni.
+    await db.foods.update(DEFAULT_MEDS[0].id, { archived: true });
+    await ensureMeds();
+    expect(await db.foods.filter((f) => f.kind === 'med').count()).toBe(DEFAULT_MEDS.length);
+    expect((await db.foods.get(DEFAULT_MEDS[0].id))?.archived).toBe(true);
+  });
+
+  it('gli integratori della giornata si salvano e tornano dal backup', async () => {
+    await saveDay({ ...oldDays[0], meds: ['med-magnesio'] });
+    const backup = await exportBackup();
+    await wipeAll();
+    expect(await db.foods.filter((f) => f.kind === 'med').count()).toBe(DEFAULT_MEDS.length);
+    await importBackup(backup);
+    expect((await db.days.get(oldDays[0].date))?.meds).toEqual(['med-magnesio']);
   });
 
   it('un backup fatto con la versione precedente si importa ancora', async () => {

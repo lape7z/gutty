@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyze, benjaminiHochberg, buildObservations, dayScore, mulberry32 } from './analysis';
+import { analyze, benjaminiHochberg, buildObservations, dayScore, factorsOf, mulberry32 } from './analysis';
 import { addDays, daysBetween } from './date';
 import { DEFAULT_FOODS, DEFAULT_SYMPTOMS } from './defaults';
 import { generateDemo } from './demo';
@@ -167,5 +167,25 @@ describe('analisi per gruppi', () => {
     const res = analyze(entriesByGroup(demo, DEFAULT_FOODS), { symptomIds, target: { kind: 'overall' }, lag: timed });
     const strong = res.results.filter((r) => r.confidence === 'probabile').map((r) => r.id);
     expect(strong).toEqual(expect.arrayContaining(['g-cipolla-aglio', 'g-lattosio', 'alcol-3-piu']));
+  });
+});
+
+describe('integratori e farmaci', () => {
+  it('entrano nell’analisi come gli alimenti, senza duplicati', () => {
+    const e: DayEntry = { date: '2026-10-01', foods: ['pane'], meds: ['med-ferro', 'med-ferro'], symptoms: {}, updatedAt: 0 };
+    expect(factorsOf(e)).toEqual(['pane', 'med-ferro']);
+    expect(factorsOf({ ...e, meds: undefined })).toEqual(['pane']);
+  });
+
+  it('un integratore che peggiora i sintomi viene trovato', () => {
+    const days: DayEntry[] = Array.from({ length: 60 }, (_, i) => {
+      const iron = i % 3 === 0;
+      const level = iron ? 3 : i % 5 === 0 ? 1 : 0;
+      return { date: addDays('2026-06-01', i), foods: ['pane'], meds: iron ? ['med-ferro'] : undefined, symptoms: {}, moments: { pomeriggio: { level, symptoms: [] } }, updatedAt: 0 };
+    });
+    const res = analyze(days, { symptomIds, target: { kind: 'overall' }, lag: { from: 0, to: 0 } });
+    const iron = res.results.find((r) => r.id === 'med-ferro')!;
+    expect(iron.diff).toBeGreaterThan(2);
+    expect(iron.confidence).toBe('probabile');
   });
 });

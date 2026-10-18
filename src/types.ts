@@ -32,6 +32,8 @@ export interface DayEntry {
   drinks?: number;
   /** In quali momenti della giornata hai fatto attività sportiva (assente = nessuna). */
   sport?: Moment[];
+  /** id degli integratori e farmaci presi quel giorno (assente = nessuno). */
+  meds?: string[];
   notes?: string;
   updatedAt: number;
 }
@@ -45,6 +47,11 @@ export interface Food {
    * in quel caso i gruppi si ricavano dal nome, quindi non serve modificare i dati esistenti.
    */
   groups?: string[];
+  /**
+   * 'med' = integratore o farmaco. Stanno nella stessa tabella degli alimenti (niente modifiche
+   * allo schema del database), ma l'app li mostra a parte e non entrano nei pasti.
+   */
+  kind?: 'med';
   archived?: boolean;
 }
 

@@ -154,7 +154,10 @@ export function DiaryView({ onOpen }: { onOpen: (date: string) => void }) {
                       <span className="title">{formatLong(d.date)}</span>
                       {moments && <span className="meta moments">{moments}</span>}
                       {meta && <span className="meta">{meta}</span>}
-                      <span className="foods">{d.foods.length ? d.foods.map(nameOf).join(', ') : 'Nessun alimento segnato'}</span>
+                      <span className="foods">
+                        {d.foods.length ? d.foods.map(nameOf).join(', ') : 'Nessun alimento segnato'}
+                        {d.meds?.length ? ` · ${d.meds.map(nameOf).join(', ')}` : ''}
+                      </span>
                       {d.notes && <span className="notes">{d.notes}</span>}
                     </span>
                   </button>

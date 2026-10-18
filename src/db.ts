@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import { DEFAULT_FOODS, DEFAULT_SYMPTOMS } from './defaults';
+import { DEFAULT_FOODS, DEFAULT_MEDS, DEFAULT_SYMPTOMS } from './defaults';
 import type { DayEntry, Food, Symptom } from './types';
 
 // Tutti i dati restano nel browser (IndexedDB): nessun server, nessun account.
@@ -19,9 +19,21 @@ db.version(1).stores({
 });
 
 db.on('populate', async (tx) => {
-  await tx.table('foods').bulkAdd(DEFAULT_FOODS);
+  await tx.table('foods').bulkAdd([...DEFAULT_FOODS, ...DEFAULT_MEDS]);
   await tx.table('symptoms').bulkAdd(DEFAULT_SYMPTOMS);
 });
+
+/**
+ * Chi aveva già l'app prima degli integratori non ha la lista iniziale: la aggiunge una volta sola,
+ * senza toccare nient'altro. Se esiste già almeno un integratore o farmaco non fa nulla.
+ */
+export async function ensureMeds(): Promise<void> {
+  await db.transaction('rw', db.foods, async () => {
+    if (await db.foods.filter((f) => f.kind === 'med').count()) return;
+    const existing = new Set(await db.foods.toCollection().primaryKeys());
+    await db.foods.bulkAdd(DEFAULT_MEDS.filter((m) => !existing.has(m.id)));
+  });
+}
 
 export function emptyDay(date: string): DayEntry {
   return { date, symptoms: {}, foods: [], updatedAt: 0 };
@@ -79,6 +91,7 @@ export async function restoreBackup(b: Backup): Promise<void> {
     if (b.foods?.length) {
       await db.foods.clear();
       await db.foods.bulkPut(b.foods);
+      if (!b.foods.some((f) => f.kind === 'med')) await db.foods.bulkPut(DEFAULT_MEDS);
     }
     if (b.symptoms?.length) {
       await db.symptoms.clear();
@@ -92,7 +105,7 @@ export async function wipeAll(): Promise<void> {
     await db.days.clear();
     await db.foods.clear();
     await db.symptoms.clear();
-    await db.foods.bulkAdd(DEFAULT_FOODS);
+    await db.foods.bulkAdd([...DEFAULT_FOODS, ...DEFAULT_MEDS]);
     await db.symptoms.bulkAdd(DEFAULT_SYMPTOMS);
   });
 }

@@ -67,6 +67,15 @@ function exposure(id: string, name: string, lag: LagKey): string {
     }[lag];
   }
   const n = name.toLowerCase();
+  if (id.startsWith('med-')) {
+    return {
+      '24h': `Nelle 24 ore dopo aver preso ${n}`,
+      '0': `Nei giorni in cui prendi ${n}`,
+      '1': `Il giorno dopo aver preso ${n}`,
+      '01': `Quando hai preso ${n} il giorno stesso o quello prima`,
+      '2': `Due giorni dopo aver preso ${n}`,
+    }[lag];
+  }
   if (id.startsWith('g-')) {
     return {
       '24h': `Nelle 24 ore dopo cibi del gruppo «${n}»`,

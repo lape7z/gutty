@@ -103,7 +103,7 @@ export function dayScore(entry: DayEntry, symptomIds: string[], target: Target):
   return detailScore(entry, symptomIds, target);
 }
 
-/** Alimenti della giornata più i fattori di stile di vita (stress, sonno, cena pesante, alcol, sport). */
+/** Alimenti della giornata più integratori, farmaci e fattori di stile di vita (stress, sonno, cena pesante, alcol, sport). */
 export function factorsOf(entry: DayEntry): string[] {
   const out = [...entry.foods];
   if (entry.stress !== undefined && entry.stress >= 4) out.push('stress-alto');
@@ -113,6 +113,8 @@ export function factorsOf(entry: DayEntry): string[] {
   if (entry.drinks !== undefined && entry.drinks >= 3) out.push('alcol-3-piu');
   else if (entry.drinks !== undefined && entry.drinks >= 1) out.push('alcol-1-2');
   if (entry.sport?.length) out.push('sport');
+  // Integratori e farmaci si confrontano come gli alimenti (id con prefisso "med-").
+  for (const m of entry.meds ?? []) if (!out.includes(m)) out.push(m);
   return out;
 }
 

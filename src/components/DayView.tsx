@@ -2,8 +2,8 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, todayISO } from '../date';
 import { db, emptyDay, saveDay } from '../db';
-import { FOOD_CATEGORIES, slugify } from '../defaults';
-import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods } from '../hooks';
+import { DEFAULT_MEDS, FOOD_CATEGORIES, medId, slugify } from '../defaults';
+import { overallScore, useActiveSymptoms, useDaysOrEmpty, useFoods, useMeds } from '../hooks';
 import { backupDue, saveBackup, snoozeBackup } from '../backup';
 import { isAlcoholic, suggestCategory, suggestGroups } from '../groups';
 import { FoodGroupEditor, groupSummary } from './FoodGroups';
@@ -40,6 +40,7 @@ export function DayView({ date, onDateChange }: Props) {
   const today = todayISO();
   const symptoms = useActiveSymptoms();
   const foods = useFoods();
+  const meds = useMeds();
   const allDays = useDaysOrEmpty();
   const loaded = useLiveQuery(async () => ({ date, entry: await db.days.get(date) }), [date]);
   const [draft, setDraft] = useState<DayEntry | null>(null);
@@ -308,6 +309,17 @@ export function DayView({ date, onDateChange }: Props) {
         <DrinksStepper value={draft.drinks} onChange={(drinks) => update({ drinks })} />
       </section>
 
+      <Sec title="Integratori e farmaci" aside={draft.meds?.length ? `${draft.meds.length} oggi` : 'facoltativo'} />
+      <section className="sheet">
+        <MedsPicker
+          meds={meds}
+          days={allDays}
+          selected={draft.meds ?? []}
+          yesterday={yesterday?.meds ?? []}
+          onChange={(list) => update({ meds: list.length ? list : undefined })}
+        />
+      </section>
+
       <Sec title="Come ti senti" />
       <section className="sheet">
         <FacePicker label="Stress" value={draft.stress} options={STRESS} onChange={(stress) => update({ stress })} />
@@ -322,7 +334,7 @@ export function DayView({ date, onDateChange }: Props) {
         <textarea
           id="notes"
           className="field"
-          placeholder="Farmaci, ciclo, pasti fuori casa…"
+          placeholder="Ciclo, pasti fuori casa, viaggi…"
           value={draft.notes ?? ''}
           onChange={(e) => update({ notes: e.target.value })}
         />
@@ -779,5 +791,101 @@ function DrinksStepper({ value, onChange }: { value: number | undefined; onChang
         </button>
       </div>
     </div>
+  );
+}
+
+const MEDS_SHOWN = 8;
+const DEFAULT_ORDER = new Map(DEFAULT_MEDS.map((m, i) => [m.id, i]));
+
+/**
+ * Integratori e farmaci della giornata: quelli usati più spesso per primi, "Come ieri" per chi li prende
+ * tutti i giorni, e un campo per aggiungerne di nuovi.
+ */
+function MedsPicker({
+  meds,
+  days,
+  selected,
+  yesterday,
+  onChange,
+}: {
+  meds: Food[];
+  days: DayEntry[];
+  selected: string[];
+  yesterday: string[];
+  onChange: (list: string[]) => void;
+}) {
+  const [name, setName] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const usage = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const d of days) for (const m of d.meds ?? []) counts.set(m, (counts.get(m) ?? 0) + 1);
+    return counts;
+  }, [days]);
+  // Prima quelli segnati oggi, poi i più usati; gli altri dietro "Mostra tutti".
+  const ranked = meds
+    .filter((m) => !m.archived || selected.includes(m.id))
+    .map((m) => ({ m, i: DEFAULT_ORDER.get(m.id) ?? DEFAULT_ORDER.size }))
+    .sort(
+      (a, b) =>
+        Number(selected.includes(b.m.id)) - Number(selected.includes(a.m.id)) || (usage.get(b.m.id) ?? 0) - (usage.get(a.m.id) ?? 0) || a.i - b.i,
+    )
+    .map(({ m }) => m);
+  const visible = showAll ? ranked : ranked.slice(0, Math.max(MEDS_SHOWN, selected.length));
+  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((m) => m !== id) : [...selected, id]);
+  const missingFromYesterday = yesterday.filter((m) => !selected.includes(m));
+
+  const add = async () => {
+    const clean = name.trim();
+    if (!clean) return;
+    const existing = meds.find((m) => m.name.toLowerCase() === clean.toLowerCase());
+    let id = existing?.id ?? medId(clean);
+    if (existing?.archived) await db.foods.update(id, { archived: false });
+    if (!existing) {
+      if (await db.foods.get(id)) id = `${id}-${Date.now()}`;
+      await db.foods.add({ id, name: clean, category: 'Altro', kind: 'med' });
+    }
+    if (!selected.includes(id)) onChange([...selected, id]);
+    setName('');
+  };
+
+  return (
+    <>
+      <p className="faint small" style={{ margin: '0 0 12px' }}>
+        Segna quello che hai preso oggi: alcuni (ferro, magnesio, antibiotici, antidolorifici…) cambiano molto l’intestino.
+      </p>
+      <div className="chips">
+        {visible.map((m) => (
+          <button key={m.id} className="chip" aria-pressed={selected.includes(m.id)} onClick={() => toggle(m.id)}>
+            {m.name}
+          </button>
+        ))}
+      </div>
+      {ranked.length > visible.length && (
+        <button className="btn link" style={{ marginTop: 8, marginLeft: -4 }} onClick={() => setShowAll(true)}>
+          Mostra tutti ({ranked.length})
+        </button>
+      )}
+      {missingFromYesterday.length > 0 && (
+        <button className="btn link" style={{ marginTop: 8, marginLeft: -4 }} onClick={() => onChange([...selected, ...missingFromYesterday])}>
+          <Icon name="plus" size={16} /> Come ieri
+        </button>
+      )}
+      <form
+        className="field"
+        style={{ marginTop: 12 }}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void add();
+        }}
+      >
+        <Icon name="plus" size={18} />
+        <input placeholder="Aggiungi integratore o farmaco" value={name} onChange={(e) => setName(e.target.value)} aria-label="Nuovo integratore o farmaco" />
+        {name.trim() && (
+          <button type="submit" className="btn link" style={{ padding: 0 }}>
+            Aggiungi
+          </button>
+        )}
+      </form>
+    </>
   );
 }
